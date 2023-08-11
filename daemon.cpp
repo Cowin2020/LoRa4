@@ -1,3 +1,4 @@
+#include <limits>
 #include <vector>
 #include <chrono>
 #include <thread>
@@ -25,27 +26,87 @@ namespace DAEMON {
 	}
 
 	namespace Sleep {
-		static std::vector<Timer> threads;
+		static std::mutex sleep_mutex;
+		static std::condition_variable sleep_condition;
+		static std::mutex timer_mutex;
+		static std::vector<struct Timer> timers;
 
 		size_t register_thread(void) {
-			/* TODO */
+			static struct Timer const initial = {.start = 0, .stop = 0};
+			size_t const index = timers.size();
+			timers.push_back(initial);
+			return index;
+		}
+
+		void time(size_t const timer_index, unsigned long int const milliseconds) {
+			{
+				std::lock_guard<std::mutex> lock(timer_mutex);
+				struct Timer &timer = timers[timer_index];
+				unsigned long int const now = millis();
+				timer.start = now;
+				timer.stop = now + milliseconds;
+			}
+			sleep_condition.notify_one();
+		}
+
+		void loop(void) {
+			for (;;) {
+				bool awake = false;
+				unsigned long int duration = std::numeric_limits<unsigned long int>::max();
+				{
+					std::lock_guard<std::mutex> lock(timer_mutex);
+					unsigned long int const now = millis();
+					for (struct Timer &timer : timers)
+						if (now - timer.start < timer.stop - timer.start) {
+							if (duration > timer.stop - now)
+								duration = timer.stop - now;
+						}
+						else
+							awake = true;
+				}
+				if (duration > MEASURE_INTERVAL)
+					duration = MEASURE_INTERVAL;
+
+				if (awake || duration <= SLEEP_MARGIN) {
+					std::unique_lock<std::mutex> lock(sleep_mutex);
+					sleep_condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(duration));
+				}
+				else {
+					Debug::print("DEBUG: sleep ");
+					Debug::print(duration);
+					Debug::println("ms");
+					Debug::flush();
+					LORA::sleep();
+					esp_sleep_enable_timer_wakeup(duration * 1000);
+					esp_light_sleep_start();
+				}
+			}
 		}
 	}
 
 	namespace AskTime {
-		static std::atomic<unsigned long int> last_sync(0);
+		static std::atomic<unsigned long int> last_synchronization(0);
+
+		void synchronized(void) {
+			last_synchronization = millis();
+		}
 
 		[[noreturn]]
 		void loop(void) {
+			size_t const sleep = Sleep::register_thread();
 			for (;;) {
 				unsigned long int now = millis();
-				unsigned long int duration = now - last_sync;
-				if (duration < SYNCHONIZE_INTERVAL) {
-					thread_delay(SYNCHONIZE_INTERVAL - duration);
-					continue;
+				unsigned long int passed = now - last_synchronization;
+				if (passed < SYNCHONIZE_INTERVAL) {
+					Sleep::time(sleep, SYNCHONIZE_INTERVAL - passed);
+					thread_delay(SYNCHONIZE_INTERVAL - passed);
 				}
-				LORA::Send::ASKTIME();
-				thread_delay(SYNCHONIZE_INTERVAL);
+				else {
+					LORA::Send::ASKTIME();
+					thread_delay(SYNCHONIZE_TIMEOUT);
+					Sleep::time(sleep, SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
+					thread_delay(SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
+				}
 			}
 		}
 	}
@@ -58,9 +119,8 @@ namespace DAEMON {
 
 		static void send_data(struct Data const *const data) {
 			if (enable_gateway) {
-				if (WIFI::upload(my_device_id, ++current_serial, data)) {
+				if (WIFI::upload(my_device_id, ++current_serial, data))
 					OLED::draw_received();
-				}
 				else {
 					COM::print("HTTP: unable to send data: time=");
 					COM::println(String(data->time));
@@ -84,12 +144,17 @@ namespace DAEMON {
 
 		[[noreturn]]
 		void loop(void) {
+			size_t const sleep = Sleep::register_thread();
 			for (;;) {
-				std::unique_lock<std::mutex> lock(mutex);
-				condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_INTERVAL));
 				struct Data data;
-				if (!SDCard::read_data(&data)) continue;
-				send_data(&data);
+				if (!SDCard::read_data(&data)) {
+					std::unique_lock<std::mutex> lock(mutex);
+					Sleep::time(sleep, SEND_IDLE_INTERVAL);
+					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_IDLE_INTERVAL));
+				}
+				std::thread(send_data, &data).detach();
+				Sleep::time(sleep, SEND_INTERVAL);
+				thread_delay(SEND_INTERVAL);
 			}
 		}
 	}
@@ -105,21 +170,26 @@ namespace DAEMON {
 
 		[[noreturn]]
 		void loop(void) {
+			size_t const sleep = Sleep::register_thread();
 			for (;;) {
 				Debug::print("DEBUG: Measure::run ");
 				struct Data data;
 				if (!Sensor::measure(&data)) {
-					thread_delay(12345);
-					continue;
+					Sleep::time(sleep, MEASURE_INTERVAL);
+					thread_delay(MEASURE_INTERVAL);
 				}
-				print(&data);
-				/* TODO */
-				thread_delay(MEASURE_INTERVAL);
+				else {
+					print(&data);
+					thread_delay(ACK_TIMEOUT);
+					Sleep::time(sleep, MEASURE_INTERVAL - ACK_TIMEOUT);
+					thread_delay(MEASURE_INTERVAL - ACK_TIMEOUT);
+				}
 			}
 		}
 	}
 
 	void run(void) {
+		std::thread(Sleep::loop).detach();
 		std::thread(AskTime::loop).detach();
 		std::thread(Push::loop).detach();
 		std::thread(Measure::loop).detach();

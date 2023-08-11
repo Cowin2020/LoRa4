@@ -1,6 +1,8 @@
 #ifndef INCLUDE_DAEMON_H
 #define INCLUDE_DAEMON_H
 
+#include <atomic>
+
 /* ************************************************************************** */
 
 namespace DAEMON {
@@ -9,11 +11,12 @@ namespace DAEMON {
 		struct Timer {
 			unsigned long int start;
 			unsigned long int stop;
-			bool enable;
 		};
 		extern size_t register_thread(void);
+		extern void time(size_t timer_index, unsigned long int milliseconds);
 	}
 	namespace AskTime {
+		extern void synchronized(void);
 		[[noreturn]] extern void loop(void);
 	}
 	namespace Push {

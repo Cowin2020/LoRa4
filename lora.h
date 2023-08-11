@@ -6,6 +6,8 @@
 /* ************************************************************************** */
 
 namespace LORA {
+	extern bool initialize(void);
+	extern void sleep(void);
 	namespace Send {
 		extern void ASKTIME(void);
 		extern void SEND(Device receiver, SerialNumber serial, Data const *data);
@@ -13,7 +15,6 @@ namespace LORA {
 	namespace Receive {
 		void packet(void);
 	}
-	extern bool initialize(void);
 }
 
 /* ************************************************************************** */

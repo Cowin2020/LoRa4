@@ -11,6 +11,7 @@
 #include "id.h"
 #include "display.h"
 #include "inet.h"
+#include "daemon.h"
 #include "lora.h"
 
 /* ************************************************************************** */
@@ -44,6 +45,40 @@ static inline TO const *pointer_offset(FROM const *const from, size_t const offs
 
 namespace LORA {
 	static Device last_receiver = 0;
+
+	bool initialize(void) {
+		SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
+		LoRa.setPins(LORA_CS, LORA_RST, LORA_IRQ);
+
+		if (!enable_gateway) {
+			size_t const N = sizeof router_topology / sizeof *router_topology;
+			size_t i = 0;
+			for (size_t i = 0;; ++i) {
+				if (i >= N) {
+					last_receiver = 0;
+					break;
+				}
+				if (router_topology[i][1] == my_device_id) {
+					last_receiver = router_topology[i][0];
+					break;
+				}
+				++i;
+			}
+		}
+
+		if (!LoRa.begin(LORA_BAND)) {
+			Display::println("LoRa uninitialized");
+			return false;
+		}
+
+		LoRa.enableCrc();
+		Display::println("LoRa initialized");
+		return true;
+	}
+
+	void sleep(void) {
+		LoRa.sleep();
+	}
 
 	namespace Send {
 		static bool payload(char const *const message, void const *const payload, size_t const size) {
@@ -127,11 +162,8 @@ namespace LORA {
 					}
 				}
 
-				#ifdef ENABLE_SLEEP
-					/* TODO */
-					//	ask_time_schedule.reset();
-				#endif
 				RTC::set(time);
+				DAEMON::AskTime::synchronized();
 
 				Debug::print("DEBUG: LoRa::Receive::TIME ");
 				Debug::println(String(*time));
@@ -147,7 +179,7 @@ namespace LORA {
 		static void ASKTIME(Device const device, std::vector<uint8_t> const &content) {
 			if (enable_gateway) {
 				if (content.size() != sizeof (Device)) {
-					COM::print("LoRa ASKTIME: incorrect packet size: ");
+					COM::print("WARN: LoRa ASKTIME: incorrect packet size: ");
 					COM::println(content.size());
 					return;
 				}
@@ -158,7 +190,7 @@ namespace LORA {
 
 				Device const sender = *reinterpret_cast<Device const *>(content.data());
 				if (!(sender > 0 && sender < number_of_device)) {
-					COM::print("LoRa ASKTIME: incorrect device: ");
+					COM::print("WARN: LoRa ASKTIME: incorrect device: ");
 					COM::println(device);
 					return;
 				}
@@ -166,8 +198,7 @@ namespace LORA {
 				Debug::print("DEBUG: LoRa::Receive::ASKTIME ");
 				Debug::println(sender);
 
-				/* TODO */
-				//	synchronize_schedule.run(millis());
+				DAEMON::AskTime::synchronized();
 			}
 		}
 
@@ -179,14 +210,14 @@ namespace LORA {
 				+ sizeof (struct Data); /* data */
 			if (enable_gateway) {
 				if (!(content.size() >= minimal_content_size)) {
-					COM::print("LoRa SEND: incorrect packet size: ");
+					COM::print("WARN: LoRa SEND: incorrect packet size: ");
 					COM::println(content.size());
 					return;
 				}
 
 				Device const device = *reinterpret_cast<Device const *>(content.data());
 				if (!(device > 0 && device < number_of_device)) {
-					COM::print("LoRa SEND: incorrect device: ");
+					COM::print("WARN: LoRa SEND: incorrect device: ");
 					COM::println(device);
 					return;
 				}
@@ -194,7 +225,7 @@ namespace LORA {
 				size_t routers_length = sizeof (Device);
 				for (;;) {
 					if (routers_length >= content.size()) {
-						COM::println("LoRa SEND: incorrect router list");
+						COM::println("WARN: LoRa SEND: incorrect router list");
 						return;
 					}
 					Device const router = *reinterpret_cast<Device const *>(content.data() + routers_length);
@@ -206,7 +237,7 @@ namespace LORA {
 					+ routers_length * sizeof (Device)
 					- sizeof (Device);
 				if (content.size() != excat_content_size) {
-					COM::print("LoRa SEND: incorrect packet size or router list: ");
+					COM::print("WARN: LoRa SEND: incorrect packet size or router list: ");
 					COM::print(content.size());
 					COM::print(" / ");
 					COM::println(routers_length);
@@ -271,7 +302,7 @@ namespace LORA {
 					+ sizeof (struct Data); /* data */
 
 				if (!(content.size() >= minimal_content_size)) {
-					COM::print("LoRa SEND: incorrect packet size: ");
+					COM::print("WARN: LoRa SEND: incorrect packet size: ");
 					COM::println(content.size());
 					return;
 				}
@@ -303,7 +334,7 @@ namespace LORA {
 					+ sizeof (Device)        /* router list length >= 1 */
 					+ sizeof (SerialNumber); /* serial code */
 				if (!(content.size() >= minimal_content_size)) {
-					COM::print("LoRa ACK: incorrect packet size: ");
+					COM::print("WARN: LoRa ACK: incorrect packet size: ");
 					COM::println(content.size());
 					return;
 				}
@@ -317,7 +348,7 @@ namespace LORA {
 				Device const router1 = *reinterpret_cast<Device const *>(content.data() + 2 * sizeof (Device));
 				if (my_device_id == terminal) {
 					if (my_device_id != router0) {
-						COM::print("LoRa ACK: dirty router list");
+						COM::print("WARN: LoRa ACK: dirty router list");
 						return;
 					}
 
@@ -446,47 +477,17 @@ namespace LORA {
 			Debug::println(parse_size);
 			size_t const packet_size = static_cast<size_t>(LoRa.available());
 			if (packet_size != static_cast<size_t>(parse_size)) {
-				Display::println("LoRa receive: LoRa.parsePacker != LoRa.available");
+				Display::println("ERROR: LoRa receive: LoRa.parsePacker != LoRa.available");
 				return;
 			}
 			std::vector<uint8_t> packet(packet_size);
 			if (LoRa.readBytes(packet.data(), packet.size()) != packet.size()) {
-				Display::println("LoRa receive: unable read data from LoRa");
+				Display::println("ERROR: LoRa receive: unable read data from LoRa");
 				return;
 			}
 			RNG.stir(packet.data(), packet.size(), packet.size() << 2);
 			std::thread(decode, packet).detach();
 		}
-	}
-
-	bool initialize(void) {
-		SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
-		LoRa.setPins(LORA_CS, LORA_RST, LORA_IRQ);
-
-		if (!enable_gateway) {
-			size_t const N = sizeof router_topology / sizeof *router_topology;
-			size_t i = 0;
-			for (size_t i = 0;; ++i) {
-				if (i >= N) {
-					last_receiver = 0;
-					break;
-				}
-				if (router_topology[i][1] == my_device_id) {
-					last_receiver = router_topology[i][0];
-					break;
-				}
-				++i;
-			}
-		}
-
-		if (!LoRa.begin(LORA_BAND)) {
-			Display::println("LoRa uninitialized");
-			return false;
-		}
-
-		LoRa.enableCrc();
-		Display::println("LoRa initialized");
-		return true;
 	}
 }
 
