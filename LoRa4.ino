@@ -1,4 +1,3 @@
-#include <Arduino.h>
 #include <esp_pthread.h>
 #include <RNG.h>
 #include <WiFi.h>

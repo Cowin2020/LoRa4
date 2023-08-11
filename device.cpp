@@ -2,8 +2,6 @@
 #include "display.h"
 #include "device.h"
 
-#include "config_device.h"
-
 /* ************************************************************************** */
 
 static char const data_file_path[] PROGMEM = "/data.csv";

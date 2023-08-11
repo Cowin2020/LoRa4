@@ -6,8 +6,6 @@
 #include <mutex>
 #include <condition_variable>
 
-#include <Arduino.h>
-
 #include "display.h"
 #include "id.h"
 #include "device.h"
