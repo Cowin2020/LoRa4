@@ -14,6 +14,7 @@ namespace DAEMON {
 		};
 		extern size_t register_thread(void);
 		extern void time(size_t timer_index, unsigned long int milliseconds);
+		extern void loop(void);
 	}
 	namespace AskTime {
 		extern void synchronized(void);

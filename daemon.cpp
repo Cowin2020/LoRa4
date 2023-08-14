@@ -23,64 +23,74 @@ namespace DAEMON {
 		vTaskDelay(ticks>0 ? ticks : 1);
 	}
 
-	namespace Sleep {
-		static std::mutex sleep_mutex;
-		static std::condition_variable sleep_condition;
-		static std::mutex timer_mutex;
-		static std::vector<struct Timer> timers;
+	#if defined(ENABLE_SLEEP)
+		namespace Sleep {
+			static std::mutex sleep_mutex;
+			static std::condition_variable sleep_condition;
+			static std::mutex timer_mutex;
+			static std::vector<struct Timer> timers;
 
-		size_t register_thread(void) {
-			static struct Timer const initial = {.start = 0, .stop = 0};
-			size_t const index = timers.size();
-			timers.push_back(initial);
-			return index;
-		}
-
-		void time(size_t const timer_index, unsigned long int const milliseconds) {
-			{
-				std::lock_guard<std::mutex> lock(timer_mutex);
-				struct Timer &timer = timers[timer_index];
-				unsigned long int const now = millis();
-				timer.start = now;
-				timer.stop = now + milliseconds;
+			size_t register_thread(void) {
+				static struct Timer const initial = {.start = 0, .stop = 0};
+				size_t const index = timers.size();
+				timers.push_back(initial);
+				return index;
 			}
-			sleep_condition.notify_one();
-		}
 
-		void loop(void) {
-			for (;;) {
-				bool awake = false;
-				unsigned long int duration = std::numeric_limits<unsigned long int>::max();
+			void time(size_t const timer_index, unsigned long int const milliseconds) {
 				{
 					std::lock_guard<std::mutex> lock(timer_mutex);
+					struct Timer &timer = timers[timer_index];
 					unsigned long int const now = millis();
-					for (struct Timer &timer : timers)
-						if (now - timer.start < timer.stop - timer.start) {
-							if (duration > timer.stop - now)
-								duration = timer.stop - now;
-						}
-						else
-							awake = true;
+					timer.start = now;
+					timer.stop = now + milliseconds;
 				}
-				if (duration > MEASURE_INTERVAL)
-					duration = MEASURE_INTERVAL;
+				sleep_condition.notify_one();
+			}
 
-				if (awake || duration <= SLEEP_MARGIN) {
-					std::unique_lock<std::mutex> lock(sleep_mutex);
-					sleep_condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(duration));
-				}
-				else {
-					Debug::print("DEBUG: sleep ");
-					Debug::print(duration);
-					Debug::println("ms");
-					Debug::flush();
-					LORA::sleep();
-					esp_sleep_enable_timer_wakeup(duration * 1000);
-					esp_light_sleep_start();
+			void loop(void) {
+				for (;;) {
+					bool awake = false;
+					unsigned long int duration = std::numeric_limits<unsigned long int>::max();
+					{
+						std::lock_guard<std::mutex> lock(timer_mutex);
+						unsigned long int const now = millis();
+						for (struct Timer &timer : timers)
+							if (now - timer.start < timer.stop - timer.start) {
+								if (duration > timer.stop - now)
+									duration = timer.stop - now;
+							}
+							else
+								awake = true;
+					}
+					if (duration > MEASURE_INTERVAL)
+						duration = MEASURE_INTERVAL;
+
+					if (awake || duration <= SLEEP_MARGIN) {
+						std::unique_lock<std::mutex> lock(sleep_mutex);
+						sleep_condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(duration));
+					}
+					else {
+						Debug::print("DEBUG: sleep ");
+						Debug::print(duration);
+						Debug::println("ms");
+						Debug::flush();
+						LORA::sleep();
+						esp_sleep_enable_timer_wakeup(duration * 1000);
+						esp_light_sleep_start();
+					}
 				}
 			}
 		}
-	}
+	#else
+		namespace Sleep {
+			size_t register_thread(void) {
+				return 0;
+			}
+			void time(size_t timer_index, unsigned long int milliseconds) {}
+			void loop(void) {}
+		}
+	#endif
 
 	namespace AskTime {
 		static std::atomic<unsigned long int> last_synchronization(0);
@@ -105,6 +115,7 @@ namespace DAEMON {
 					Sleep::time(sleep, SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
 					thread_delay(SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
 				}
+				yield();
 			}
 		}
 	}
@@ -131,6 +142,7 @@ namespace DAEMON {
 					thread_delay(SEND_INTERVAL);
 					if (acked_serial.load() == current_serial.load())
 						break;
+					yield();
 				}
 			}
 		}
@@ -187,10 +199,12 @@ namespace DAEMON {
 	}
 
 	void run(void) {
-		std::thread(Sleep::loop).detach();
-		std::thread(AskTime::loop).detach();
-		std::thread(Push::loop).detach();
-		std::thread(Measure::loop).detach();
+		#if defined(ENABLE_SLEEP)
+			std::thread(Sleep::loop).detach();
+		#endif
+		if (!enable_gateway) std::thread(AskTime::loop).detach();
+		if (enable_measure) std::thread(Push::loop).detach();
+		if (enable_measure) std::thread(Measure::loop).detach();
 	}
 }
 

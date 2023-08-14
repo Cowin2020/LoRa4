@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include <thread>
+#include <mutex>
 
 #include <LoRa.h>
 #include <RNG.h>
@@ -44,6 +45,7 @@ static inline TO const *pointer_offset(FROM const *const from, size_t const offs
 }
 
 namespace LORA {
+	static std::mutex mutex;
 	static Device last_receiver = 0;
 
 	bool initialize(void) {
@@ -81,7 +83,7 @@ namespace LORA {
 	}
 
 	namespace Send {
-		static bool payload(char const *const message, void const *const payload, size_t const size) {
+		static bool payload(char const *const message, void const *const content, size_t const size) {
 			Debug::print("DEBUG: LORA::Send::payload ");
 			Debug::println(message);
 
@@ -107,27 +109,28 @@ namespace LORA {
 				return false;
 			}
 			char ciphertext[size];
-			cipher.encrypt((uint8_t *)&ciphertext, (uint8_t const *)payload, size);
+			cipher.encrypt((uint8_t *)&ciphertext, (uint8_t const *)content, size);
 			uint8_t tag[CIPHER_TAG_SIZE];
 			cipher.computeTag(tag, sizeof tag);
 			LoRa.write(nonce, sizeof nonce);
 			LoRa.write((uint8_t const *)&ciphertext, sizeof ciphertext);
 			LoRa.write((uint8_t const *)&tag, sizeof tag);
 
-			Debug::dump("DEBUG: LoRa::Send::payload", payload, size);
+			Debug::dump("DEBUG: LORA::Send::payload", content, size);
 			return true;
 		}
 
 		void ASKTIME(void) {
+			std::lock_guard<std::mutex> lock(mutex);
 			LoRa.beginPacket();
 			LoRa.write(uint8_t(PACKET_ASKTIME));
 			LoRa.write(uint8_t(last_receiver));
 			payload("ASKTIME", &my_device_id, sizeof my_device_id);
-			LoRa.endPacket(true);
+			LoRa.endPacket();
 		}
 
 		void SEND(Device const receiver, SerialNumber const serial, Data const *const data) {
-			Debug::print("DEBUG: LoRa::Send::SEND receiver=");
+			Debug::print("DEBUG: LORA::Send::SEND receiver=");
 			Debug::print(receiver);
 			Debug::print(" serial=");
 			Debug::println(serial);
@@ -137,16 +140,16 @@ namespace LORA {
 			std::memcpy(content + sizeof my_device_id, &my_device_id, sizeof my_device_id);
 			std::memcpy(content + 2 * sizeof my_device_id, &serial, sizeof serial);
 			std::memcpy(content + 2 * sizeof my_device_id + sizeof serial, data, sizeof *data);
+
+			std::lock_guard<std::mutex> lock(mutex);
 			LoRa.beginPacket();
 			LoRa.write(uint8_t(PACKET_SEND));
 			LoRa.write(uint8_t(receiver));
 			payload("SEND", content, sizeof content);
-			LoRa.endPacket(true);
+			LoRa.endPacket();
 		}
 	}
-}
 
-namespace LORA {
 	namespace Receive {
 		static void TIME(Device const device, std::vector<uint8_t> const &content) {
 			if (!enable_gateway) {
@@ -165,14 +168,15 @@ namespace LORA {
 				RTC::set(time);
 				DAEMON::AskTime::synchronized();
 
-				Debug::print("DEBUG: LoRa::Receive::TIME ");
+				Debug::print("DEBUG: LORA::Receive::TIME ");
 				Debug::println(String(*time));
 
+				std::lock_guard<std::mutex> lock(mutex);
 				LoRa.beginPacket();
 				LoRa.write(PacketType(PACKET_TIME));
 				LoRa.write(my_device_id);
 				LORA::Send::payload("TIME+", time, sizeof *time);
-				LoRa.endPacket(true);
+				LoRa.endPacket();
 			}
 		}
 
@@ -195,7 +199,7 @@ namespace LORA {
 					return;
 				}
 
-				Debug::print("DEBUG: LoRa::Receive::ASKTIME ");
+				Debug::print("DEBUG: LORA::Receive::ASKTIME ");
 				Debug::println(sender);
 
 				DAEMON::AskTime::synchronized();
@@ -288,11 +292,12 @@ namespace LORA {
 				if (!upload_success) return;
 
 				Device const router = *reinterpret_cast<Device const *>(content.data() + sizeof device);
+				std::lock_guard<std::mutex> lock(mutex);
 				LoRa.beginPacket();
 				LoRa.write(PacketType(PACKET_ACK));
 				LoRa.write(router);
 				LORA::Send::payload("ACK", content.data(), router_list_size);
-				LoRa.endPacket(true);
+				LoRa.endPacket();
 			}
 			else {
 				size_t const minimal_content_size =
@@ -308,7 +313,7 @@ namespace LORA {
 				}
 
 				Device const receiver = *reinterpret_cast<Device const *>(content.data());
-				Debug::print("DEBUG: LoRa::Receive::SEND receiver=");
+				Debug::print("DEBUG: LORA::Receive::SEND receiver=");
 				Debug::println(receiver);
 				if (receiver != my_device_id) return;
 
@@ -316,14 +321,15 @@ namespace LORA {
 				std::memcpy(bounce.data(), content.data() + sizeof (Device), sizeof (Device));
 				std::memcpy(bounce.data() + sizeof (Device), &receiver, sizeof (Device));
 
-				Debug::print("DEBUG: LoRa::Receive::SEND last_receiver=");
+				Debug::print("DEBUG: LORA::Receive::SEND last_receiver=");
 				Debug::println(last_receiver);
 
+				std::lock_guard<std::mutex> lock(mutex);
 				LoRa.beginPacket();
 				LoRa.write(PacketType(PACKET_SEND));
 				LoRa.write(last_receiver);
 				LORA::Send::payload("SEND+", bounce.data(), bounce.size());
-				LoRa.endPacket(true);
+				LoRa.endPacket();
 			}
 		}
 
@@ -339,7 +345,7 @@ namespace LORA {
 					return;
 				}
 
-				Debug::print("DEBUG: LoRa::Receive::ACK receiver=");
+				Debug::print("DEBUG: LORA::Receive::ACK receiver=");
 				Debug::println(receiver);
 				if (my_device_id != receiver) return;
 
@@ -353,7 +359,7 @@ namespace LORA {
 					}
 
 					SerialNumber const serial = *reinterpret_cast<Device const *>(content.data() + 3 * sizeof (Device));
-					Debug::print("DEBUG: LoRa::Receive::ACK serial=");
+					Debug::print("DEBUG: LORA::Receive::ACK serial=");
 					Debug::println(serial);
 
 					/* TODO */
@@ -367,17 +373,18 @@ namespace LORA {
 					OLED::draw_received();
 				}
 				else {
-					Debug::print("DEBUG: LoRa::Receive::ACK router=");
+					Debug::print("DEBUG: LORA::Receive::ACK router=");
 					Debug::print(router1);
 					Debug::print(" terminal=");
 					Debug::println(terminal);
 
+					std::lock_guard<std::mutex> lock(mutex);
 					LoRa.beginPacket();
 					LoRa.write(PacketType(PACKET_ACK));
 					LoRa.write(router1);
 					LoRa.write(terminal);
 					LORA::Send::payload("ACK+", content.data() + 2 * sizeof (Device), content.size() - 2 * sizeof (Device));
-					LoRa.endPacket(true);
+					LoRa.endPacket();
 				}
 			}
 		}
@@ -385,14 +392,14 @@ namespace LORA {
 		static void decode(std::vector<uint8_t> packet) {
 			static size_t const overhead_size = sizeof (PacketType) + sizeof (Device) + CIPHER_IV_LENGTH + CIPHER_TAG_SIZE;
 			if (packet.size() < overhead_size) {
-				Debug::print("DEBUG: LoRa::Receive::decode packet too short ");
+				Debug::print("DEBUG: LORA::Receive::decode packet too short ");
 				Debug::println(packet.size());
 				return;
 			}
 
 			PacketType const *const packet_type = packet.data();
 			Device const *const device = pointer_offset<Device>(packet_type, sizeof *packet_type);
-			Debug::print("DEBUG: LoRa::Receive::decode device=");
+			Debug::print("DEBUG: LORA::Receive::decode device=");
 			Debug::println(*device);
 
 			uint8_t const *const nonce = pointer_offset<uint8_t>(device, sizeof *device);
@@ -411,13 +418,13 @@ namespace LORA {
 				case PACKET_ACK:
 					break;
 				default:
-					Debug::print("DEBUG: LoRa::Receive::decode unknown packet type ");
+					Debug::print("DEBUG: LORA::Receive::decode unknown packet type ");
 					Debug::println(*packet_type);
 					return;
 			}
 
 			if (!(*device >= 0 && * device < number_of_device)) {
-				Debug::print("DEBUG:: LoRa::Receive::decode unknown device ");
+				Debug::print("DEBUG:: LORA::Receive::decode unknown device ");
 				Debug::println(*device);
 				return;
 			}
@@ -471,6 +478,7 @@ namespace LORA {
 		}
 
 		void packet(void) {
+			std::unique_lock<std::mutex> lock(mutex);
 			signed int const parse_size = LoRa.parsePacket();
 			if (parse_size < 1) return;
 			Debug::print("DEBUG: LORA::Receive::packet packet_size ");
@@ -485,6 +493,7 @@ namespace LORA {
 				Display::println("ERROR: LoRa receive: unable read data from LoRa");
 				return;
 			}
+			lock.unlock();
 			RNG.stir(packet.data(), packet.size(), packet.size() << 2);
 			std::thread(decode, packet).detach();
 		}
