@@ -11,6 +11,7 @@
 
 #include "id.h"
 #include "display.h"
+#include "device.h"
 #include "inet.h"
 #include "daemon.h"
 #include "lora.h"
@@ -120,6 +121,15 @@ namespace LORA {
 			return true;
 		}
 
+		void TIME(struct FullTime const *const fulltime) {
+			std::lock_guard<std::mutex> lock(mutex);
+			LoRa.beginPacket();
+			LoRa.write(PacketType(PACKET_TIME));
+			LoRa.write(Device(0));
+			LORA::Send::payload("TIME", fulltime, sizeof *fulltime);
+			LoRa.endPacket(true);
+		}
+
 		void ASKTIME(void) {
 			std::lock_guard<std::mutex> lock(mutex);
 			LoRa.beginPacket();
@@ -202,7 +212,7 @@ namespace LORA {
 				Debug::print("DEBUG: LORA::Receive::ASKTIME ");
 				Debug::println(sender);
 
-				DAEMON::AskTime::synchronized();
+				DAEMON::Time::run();
 			}
 		}
 

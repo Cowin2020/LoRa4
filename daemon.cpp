@@ -92,6 +92,36 @@ namespace DAEMON {
 		}
 	#endif
 
+	namespace Time {
+		static std::mutex mutex;
+		static std::condition_variable condition;
+
+		void run(void) {
+			condition.notify_one();
+		}
+
+		[[noreturn]]
+		void loop(void) {
+			for (;;) {
+				Debug::println("DAEMON::Time::loop");
+
+				struct FullTime fulltime;
+				if (!NTP::now(&fulltime)) return;
+				RTC::set(&fulltime);
+
+				LORA::Send::TIME(&fulltime);
+
+				OLED::home();
+				Display::println("Synchronize: ");
+				Display::println(String(fulltime));
+				OLED::display();
+
+				std::unique_lock<std::mutex> lock(mutex);
+				condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SYNCHONIZE_INTERVAL));
+			}
+		}
+	}
+
 	namespace AskTime {
 		static std::atomic<unsigned long int> last_synchronization(0);
 
@@ -115,7 +145,6 @@ namespace DAEMON {
 					Sleep::time(sleep, SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
 					thread_delay(SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
 				}
-				yield();
 			}
 		}
 	}
@@ -142,7 +171,6 @@ namespace DAEMON {
 					thread_delay(SEND_INTERVAL);
 					if (acked_serial.load() == current_serial.load())
 						break;
-					yield();
 				}
 			}
 		}
@@ -202,9 +230,18 @@ namespace DAEMON {
 		#if defined(ENABLE_SLEEP)
 			std::thread(Sleep::loop).detach();
 		#endif
-		if (!enable_gateway) std::thread(AskTime::loop).detach();
-		if (enable_measure) std::thread(Push::loop).detach();
-		if (enable_measure) std::thread(Measure::loop).detach();
+
+		if (enable_gateway) {
+			std::thread(Time::loop).detach();
+		}
+		else {
+			std::thread(AskTime::loop).detach();
+		}
+
+		if (enable_measure) {
+			std::thread(Push::loop).detach();
+			std::thread(Measure::loop).detach();
+		}
 	}
 }
 
