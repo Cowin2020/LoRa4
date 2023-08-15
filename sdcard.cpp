@@ -19,8 +19,10 @@ namespace SDCard {
 		static char cleanup_file_path[] = CLEANUP_FILE_PATH;
 
 		void clean_up(void) {
-			SD.remove(cleanup_file_path);
-			if (!SD.rename(data_file_path, cleanup_file_path)) return;
+			if (SD.exists(cleanup_file_path))
+				SD.remove(data_file_path);
+			else if (!SD.rename(data_file_path, cleanup_file_path))
+				return;
 			class File cleanup_file = SD.open(cleanup_file_path, "r");
 			if (!cleanup_file) {
 				COM::println("Fail to open clean-up file");
