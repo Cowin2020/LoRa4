@@ -361,14 +361,13 @@ namespace LORA {
 
 				Device const terminal = *reinterpret_cast<Device const *>(content.data());
 				Device const router0 = *reinterpret_cast<Device const *>(content.data() + sizeof (Device));
-				Device const router1 = *reinterpret_cast<Device const *>(content.data() + 2 * sizeof (Device));
 				if (my_device_id == terminal) {
 					if (my_device_id != router0) {
 						COM::print("WARN: LoRa ACK: dirty router list");
 						return;
 					}
 
-					SerialNumber const serial = *reinterpret_cast<Device const *>(content.data() + 3 * sizeof (Device));
+					SerialNumber const serial = *reinterpret_cast<Device const *>(content.data() + 2 * sizeof (Device));
 					Debug::print("DEBUG: LORA::Receive::ACK serial=");
 					Debug::println(serial);
 
@@ -383,6 +382,7 @@ namespace LORA {
 					OLED::draw_received();
 				}
 				else {
+					Device const router1 = *reinterpret_cast<Device const *>(content.data() + 2 * sizeof (Device));
 					Debug::print("DEBUG: LORA::Receive::ACK router=");
 					Debug::print(router1);
 					Debug::print(" terminal=");
@@ -463,6 +463,7 @@ namespace LORA {
 				OLED::set_message(String("LoRa ") + *packet_type + ": invalid cipher tag\n");
 				return;
 			}
+			Debug::dump("DEBUG: LORA::Receive::decode", cleantext.data(), cleantext.size());
 
 			switch (*packet_type) {
 			case PACKET_TIME:

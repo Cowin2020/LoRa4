@@ -1,4 +1,5 @@
 #include "display.h"
+#include "device.h"
 
 /* ************************************************************************** */
 
@@ -19,6 +20,20 @@
 #endif
 
 namespace COM {
+	#ifdef ENABLE_COM_OUTPUT
+		void initialize(void) {
+			#ifdef CPU_FREQUENCY
+				#if CPU_FREQUENCY < 80
+					Serial.begin(COM_BAUD * 80 / CPU_FREQUENCY);
+				#else
+					Serial.begin(COM_BAUD);
+				#endif
+			#else
+				Serial.begin(COM_BAUD);
+			#endif
+		}
+	#endif
+
 	void dump(char const *const label, void const *const memory, size_t const size) {
 		Serial.printf("%s (%04X)", label, size);
 		for (size_t i = 0; i < size; ++i) {

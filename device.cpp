@@ -1,4 +1,5 @@
 #include "type.h"
+#include "id.h"
 #include "display.h"
 #include "device.h"
 
@@ -365,48 +366,48 @@ void Data::println(void) const {
 namespace Sensor {
 	bool initialize(void) {
 		if (!RTC::initialize()) return false;
-	
-		#if defined(ENABLE_MEASURE)
-			/* Initial battery gauge */
-			#if defined(ENABLE_BATTERY_GAUGE)
-				battery.begin();
-			#endif
 
-			/* Initialize Dallas thermometer */
-			#if defined(ENABLE_DALLAS)
-				dallas.begin();
-				DeviceAddress thermometer_address;
-				if (dallas.getAddress(thermometer_address, 0)) {
-					Display::println("Thermometer 0 found");
-			 	}
-				else {
-					Display::println("Thermometer 0 not found");
-					return false;
-				}
-			#endif
+		if (!enable_measure) return true;
 
-			/* Initialize BME280 sensor */
-			#if defined(ENABLE_BME280)
-				if (BME.begin()) {
-					Display::println("BME280 sensor found");
-				}
-				else {
-					Display::println("BME280 sensor not found");
-					return false;
-				}
-			#endif
+		/* Initial battery gauge */
+		#if defined(ENABLE_BATTERY_GAUGE)
+			battery.begin();
+		#endif
 
-			/* Initial LTR390 sensor */
-			#if defined(ENABLE_LTR390)
-				if (LTR.begin()) {
-					LTR.setMode(LTR390_MODE_UVS);
-					Display::println("LTR390 sensor found");
-				}
-				else {
-					Display::println("LTR390 sensor not found");
-					return false;
-				}
-			#endif
+		/* Initialize Dallas thermometer */
+		#if defined(ENABLE_DALLAS)
+			dallas.begin();
+			DeviceAddress thermometer_address;
+			if (dallas.getAddress(thermometer_address, 0)) {
+				Display::println("Thermometer 0 found");
+			}
+			else {
+				Display::println("Thermometer 0 not found");
+				return false;
+			}
+		#endif
+
+		/* Initialize BME280 sensor */
+		#if defined(ENABLE_BME280)
+			if (BME.begin()) {
+				Display::println("BME280 sensor found");
+			}
+			else {
+				Display::println("BME280 sensor not found");
+				return false;
+			}
+		#endif
+
+		/* Initial LTR390 sensor */
+		#if defined(ENABLE_LTR390)
+			if (LTR.begin()) {
+				LTR.setMode(LTR390_MODE_UVS);
+				Display::println("LTR390 sensor found");
+			}
+			else {
+				Display::println("LTR390 sensor not found");
+				return false;
+			}
 		#endif
 
 		return true;

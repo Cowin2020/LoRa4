@@ -1,4 +1,3 @@
-#include <esp_pthread.h>
 #include <RNG.h>
 #include <WiFi.h>
 
@@ -6,15 +5,11 @@
 #include "device.h"
 #include "inet.h"
 #include "lora.h"
+#include "daemon.h"
 
 /* ************************************************************************** */
 
 #include "config_id.h"
-
-#if !defined(ENABLE_GATEWAY)
-	#define CPU_FREQUENCY 20
-#endif
-
 #include "config_device.h"
 
 #if defined(CPU_FREQUENCY)
@@ -34,15 +29,6 @@
 
 /* ************************************************************************** */
 
-//	template <typename TYPE>
-//	uint8_t rand_int(void) {
-//		TYPE x;
-//		RNG.rand((uint8_t *)&x, sizeof x);
-//		return x;
-//	}
-
-/* ************************************************************************** */
-
 static bool setup_success;
 
 void setup(void) {
@@ -56,22 +42,19 @@ void setup(void) {
 		setCpuFrequencyMhz(CPU_FREQUENCY);
 	#endif
 
-	esp_pthread_cfg_t esp_pthread_cfg = esp_pthread_get_default_config();
-	esp_pthread_cfg.stack_size = 4096;
-	esp_pthread_cfg.pin_to_core = 1 ^ xPortGetCoreID() & 1;
-	esp_pthread_set_cfg(&esp_pthread_cfg);
-	Debug::println("DEBUG: pthread config set");
-
+	if (!Sensor::initialize()) goto error;
+	Debug::println("DEBUG: Sensors initialized");
 	WIFI::initialize();
 	Debug::println("DEBUG: WiFi initialized");
-	if (!LORA::initialize()) goto on_error;
+	if (!LORA::initialize()) goto error;
 	Debug::println("DEBUG: LoRa initialized");
-	LORA::Send::ASKTIME();
+
+	DAEMON::run();
 
 	setup_success = true;
 	Display::println("Done setup");
 
-on_error:
+error:
 	OLED::display();
 }
 

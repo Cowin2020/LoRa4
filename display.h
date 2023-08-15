@@ -39,17 +39,7 @@ namespace LED {
 
 namespace COM {
 	#ifdef ENABLE_COM_OUTPUT
-		inline static void initialize(void) {
-			#ifdef CPU_FREQUENCY
-				#if CPU_FREQUENCY < 80
-					Serial.begin(COM_BAUD * 80 / CPU_FREQUENCY);
-				#else
-					Serial.begin(COM_BAUD);
-				#endif
-			#else
-				Serial.begin(COM_BAUD);
-			#endif
-		}
+		extern void initialize(void);
 
 		template <typename TYPE>
 		inline void print(TYPE const x) {

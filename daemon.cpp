@@ -6,13 +6,25 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "display.h"
+#include <esp_pthread.h>
+#include <RNG.h>
+
 #include "id.h"
+#include "display.h"
 #include "device.h"
 #include "lora.h"
 #include "sdcard.h"
 #include "inet.h"
 #include "daemon.h"
+
+/* ************************************************************************** */
+
+template <typename TYPE>
+static uint8_t rand_int(void) {
+	TYPE x;
+	RNG.rand((uint8_t *)&x, sizeof x);
+	return x;
+}
 
 /* ************************************************************************** */
 
@@ -79,6 +91,8 @@ namespace DAEMON {
 						esp_sleep_enable_timer_wakeup(duration * 1000);
 						esp_light_sleep_start();
 					}
+					Debug::print("DEBUG: DAEMON::Time::loop core=");
+					Debug::println(xPortGetCoreID());
 				}
 			}
 		}
@@ -103,12 +117,12 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			for (;;) {
-				Debug::println("DAEMON::Time::loop");
+				Debug::print("DEBUG: DAEMON::Time::loop core=");
+				Debug::println(xPortGetCoreID());
 
 				struct FullTime fulltime;
 				if (!NTP::now(&fulltime)) return;
 				RTC::set(&fulltime);
-
 				LORA::Send::TIME(&fulltime);
 
 				OLED::home();
@@ -123,7 +137,7 @@ namespace DAEMON {
 	}
 
 	namespace AskTime {
-		static std::atomic<unsigned long int> last_synchronization(0);
+		static std::atomic<unsigned long int> last_synchronization;
 
 		void synchronized(void) {
 			last_synchronization = millis();
@@ -132,7 +146,12 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
+			last_synchronization = 0;
+			LORA::Send::ASKTIME();
 			for (;;) {
+				Debug::print("DEBUG: DAEMON::AskTime::loop core=");
+				Debug::println(xPortGetCoreID());
+
 				unsigned long int now = millis();
 				unsigned long int passed = now - last_synchronization;
 				if (passed < SYNCHONIZE_INTERVAL) {
@@ -143,7 +162,7 @@ namespace DAEMON {
 					LORA::Send::ASKTIME();
 					thread_delay(SYNCHONIZE_TIMEOUT);
 					Sleep::time(sleep, SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
-					thread_delay(SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
+					thread_delay(SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT + rand_int<uint8_t>());
 				}
 			}
 		}
@@ -184,6 +203,9 @@ namespace DAEMON {
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
 			for (;;) {
+				Debug::print("DEBUG: DAEMON::Push:loop core=");
+				Debug::println(xPortGetCoreID());
+
 				struct Data data;
 				if (!SDCard::read_data(&data)) {
 					std::unique_lock<std::mutex> lock(mutex);
@@ -210,23 +232,29 @@ namespace DAEMON {
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
 			for (;;) {
-				Debug::print("DEBUG: Measure::run ");
+				Debug::print("DEBUG: DAEMON::Measure::loop core=");
+				Debug::println(xPortGetCoreID());
+
 				struct Data data;
-				if (!Sensor::measure(&data)) {
-					Sleep::time(sleep, MEASURE_INTERVAL);
-					thread_delay(MEASURE_INTERVAL);
-				}
-				else {
+				if (Sensor::measure(&data)) {
 					print(&data);
-					thread_delay(ACK_TIMEOUT);
-					Sleep::time(sleep, MEASURE_INTERVAL - ACK_TIMEOUT);
-					thread_delay(MEASURE_INTERVAL - ACK_TIMEOUT);
+					Push::send_data(&data);
 				}
+				Sleep::time(sleep, MEASURE_INTERVAL);
+				thread_delay(MEASURE_INTERVAL);
 			}
 		}
 	}
 
 	void run(void) {
+		esp_pthread_cfg_t core_default = esp_pthread_get_default_config();
+		core_default.stack_size = 4096;
+		core_default.pin_to_core = xPortGetCoreID();
+		esp_pthread_cfg_t core_opposite = core_default;
+		core_opposite.pin_to_core = 1 ^ xPortGetCoreID() & 1;
+
+		esp_pthread_set_cfg(&core_opposite);
+
 		#if defined(ENABLE_SLEEP)
 			std::thread(Sleep::loop).detach();
 		#endif
@@ -240,6 +268,7 @@ namespace DAEMON {
 
 		if (enable_measure) {
 			std::thread(Push::loop).detach();
+			esp_pthread_set_cfg(&core_default);
 			std::thread(Measure::loop).detach();
 		}
 	}
