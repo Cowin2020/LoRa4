@@ -117,21 +117,26 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			for (;;) {
-				Debug::print("DEBUG: DAEMON::Time::loop core=");
-				Debug::println(xPortGetCoreID());
+				try {
+					Debug::print("DEBUG: DAEMON::Time::loop core=");
+					Debug::println(xPortGetCoreID());
 
-				struct FullTime fulltime;
-				if (!NTP::now(&fulltime)) return;
-				RTC::set(&fulltime);
-				LORA::Send::TIME(&fulltime);
+					struct FullTime fulltime;
+					if (!NTP::now(&fulltime)) return;
+					RTC::set(&fulltime);
+					LORA::Send::TIME(&fulltime);
 
-				OLED::home();
-				Display::println("Synchronize: ");
-				Display::println(String(fulltime));
-				OLED::display();
+					OLED::home();
+					Display::println("Synchronize: ");
+					Display::println(String(fulltime));
+					OLED::display();
 
-				std::unique_lock<std::mutex> lock(mutex);
-				condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SYNCHONIZE_INTERVAL));
+					std::unique_lock<std::mutex> lock(mutex);
+					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SYNCHONIZE_INTERVAL));
+				}
+				catch (...) {
+					COM::println("ERROR: DAEMON::Time::loop exception thrown");
+				}
 			}
 		}
 	}
@@ -149,20 +154,25 @@ namespace DAEMON {
 			last_synchronization = 0;
 			LORA::Send::ASKTIME();
 			for (;;) {
-				Debug::print("DEBUG: DAEMON::AskTime::loop core=");
-				Debug::println(xPortGetCoreID());
+				try {
+					Debug::print("DEBUG: DAEMON::AskTime::loop core=");
+					Debug::println(xPortGetCoreID());
 
-				unsigned long int now = millis();
-				unsigned long int passed = now - last_synchronization;
-				if (passed < SYNCHONIZE_INTERVAL) {
-					Sleep::time(sleep, SYNCHONIZE_INTERVAL - passed);
-					thread_delay(SYNCHONIZE_INTERVAL - passed);
+					unsigned long int now = millis();
+					unsigned long int passed = now - last_synchronization;
+					if (passed < SYNCHONIZE_INTERVAL) {
+						Sleep::time(sleep, SYNCHONIZE_INTERVAL - passed);
+						thread_delay(SYNCHONIZE_INTERVAL - passed);
+					}
+					else {
+						LORA::Send::ASKTIME();
+						thread_delay(SYNCHONIZE_TIMEOUT);
+						Sleep::time(sleep, SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
+						thread_delay(SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT + rand_int<uint8_t>());
+					}
 				}
-				else {
-					LORA::Send::ASKTIME();
-					thread_delay(SYNCHONIZE_TIMEOUT);
-					Sleep::time(sleep, SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT);
-					thread_delay(SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT + rand_int<uint8_t>());
+				catch (...) {
+					COM::println("ERROR: DAEMON::AskTime::loop exception thrown");
 				}
 			}
 		}
@@ -203,18 +213,23 @@ namespace DAEMON {
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
 			for (;;) {
-				Debug::print("DEBUG: DAEMON::Push:loop core=");
-				Debug::println(xPortGetCoreID());
+				try {
+					Debug::print("DEBUG: DAEMON::Push:loop core=");
+					Debug::println(xPortGetCoreID());
 
-				struct Data data;
-				if (!SDCard::read_data(&data)) {
-					std::unique_lock<std::mutex> lock(mutex);
-					Sleep::time(sleep, SEND_IDLE_INTERVAL);
-					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_IDLE_INTERVAL));
+					struct Data data;
+					if (!SDCard::read_data(&data)) {
+						std::unique_lock<std::mutex> lock(mutex);
+						Sleep::time(sleep, SEND_IDLE_INTERVAL);
+						condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_IDLE_INTERVAL));
+					}
+					std::thread(send_data, &data).detach();
+					Sleep::time(sleep, SEND_INTERVAL);
+					thread_delay(SEND_INTERVAL);
 				}
-				std::thread(send_data, &data).detach();
-				Sleep::time(sleep, SEND_INTERVAL);
-				thread_delay(SEND_INTERVAL);
+				catch (...) {
+					COM::println("ERROR: DAEMON::Push::loop exception thrown");
+				}
 			}
 		}
 	}
@@ -232,16 +247,21 @@ namespace DAEMON {
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
 			for (;;) {
-				Debug::print("DEBUG: DAEMON::Measure::loop core=");
-				Debug::println(xPortGetCoreID());
+				try {
+					Debug::print("DEBUG: DAEMON::Measure::loop core=");
+					Debug::println(xPortGetCoreID());
 
-				struct Data data;
-				if (Sensor::measure(&data)) {
-					print(&data);
-					Push::send_data(&data);
+					struct Data data;
+					if (Sensor::measure(&data)) {
+						print(&data);
+						Push::send_data(&data);
+					}
+					Sleep::time(sleep, MEASURE_INTERVAL);
+					thread_delay(MEASURE_INTERVAL);
 				}
-				Sleep::time(sleep, MEASURE_INTERVAL);
-				thread_delay(MEASURE_INTERVAL);
+				catch (...) {
+					COM::println("ERROR: DAEMON::Measure::loop exception thrown");
+				}
 			}
 		}
 	}
