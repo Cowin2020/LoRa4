@@ -271,10 +271,11 @@ namespace DAEMON {
 	}
 
 	void run(void) {
-		esp_pthread_cfg_t core_default = esp_pthread_get_default_config();
-		core_default.stack_size = 4096;
+		esp_pthread_cfg_t core_unpin = esp_pthread_get_default_config();
+		core_unpin.stack_size = 4096;
+		esp_pthread_cfg_t core_default = core_unpin;
 		core_default.pin_to_core = xPortGetCoreID();
-		esp_pthread_cfg_t core_opposite = core_default;
+		esp_pthread_cfg_t core_opposite = core_unpin;
 		core_opposite.pin_to_core = 1 ^ xPortGetCoreID() & 1;
 
 		esp_pthread_set_cfg(&core_opposite);
