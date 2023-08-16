@@ -209,6 +209,10 @@ namespace DAEMON {
 			condition.notify_one();
 		}
 
+		void ack(SerialNumber const serial) {
+			acked_serial = serial;
+		}
+
 		[[noreturn]]
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();

@@ -26,6 +26,7 @@ namespace DAEMON {
 	}
 	namespace Push {
 		extern void data(struct Data const *data);
+		extern void ack(SerialNumber serial);
 	}
 	namespace Measure {
 		[[noreturn]] extern void loop(void);

@@ -370,15 +370,7 @@ namespace LORA {
 					SerialNumber const serial = *reinterpret_cast<Device const *>(content.data() + 2 * sizeof (Device));
 					Debug::print("DEBUG: LORA::Receive::ACK serial=");
 					Debug::println(serial);
-
-					/* TODO */
-					//	if (!sender_schedule.stop_ack(serial)) return;
-
-					#ifdef ENABLE_SD_CARD
-						/* TODO */
-						SD_CARD::push_schedule.ack();
-					#endif
-
+					DAEMON::Push::ack(serial);
 					OLED::draw_received();
 				}
 				else {
