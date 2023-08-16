@@ -7,12 +7,11 @@
 
 /* Hareware */
 #define ENABLE_SDCARD
-#define ENABLE_DALLAS
+#define ENABLE_DALLAS 3
 #define ENABLE_BME280
 #define ENABLE_LTR390
 #define ENABLE_BATTERY_GAUGE BATTERY_GAUGE_DFROBOT
 #define ENABLE_CLOCK CLOCK_DS3231
-#define DALLAS_PIN 3
 
 /* LoRa */
 #define SECRET_KEY "This is secret!"

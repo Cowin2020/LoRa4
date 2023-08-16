@@ -195,7 +195,7 @@ namespace NTP {
 	#include <OneWire.h>
 	#include <DallasTemperature.h>
 
-	static class OneWire onewire_thermometer(DALLAS_PIN);
+	static class OneWire onewire_thermometer(ENABLE_DALLAS);
 	static class DallasTemperature dallas(&onewire_thermometer);
 #endif
 

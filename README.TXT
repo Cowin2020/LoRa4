@@ -202,7 +202,9 @@ ENABLE_DALLAS
 
 Dallas thermometer is used
 
-Type: defined or undefined
+If defined, it represents the pin number of thermometer data wire.
+
+Type: undefined or natural number
 
 ENABLE_BME280
 -------------
@@ -380,13 +382,6 @@ OLED_ROTATION
 The rotation of the contents on OLED display
 
 Type: integer between in [0, 3]
-
-DALLAS_PIN
-----------
-
-Pin number of thermometer data wire
-
-Type: natural number
 
 LORA_BAND
 ---------
