@@ -198,10 +198,7 @@ namespace LORA {
 					return;
 				}
 
-				Device receiver;
-				if (LoRa.readBytes(&receiver, sizeof receiver) != sizeof receiver) return;
-				if (receiver != (Device)0) return;
-
+				if (device != my_device_id) return;
 				Device const sender = *reinterpret_cast<Device const *>(content.data());
 				if (!(sender > 0 && sender < number_of_device)) {
 					COM::print("WARN: LoRa ASKTIME: incorrect device: ");

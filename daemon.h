@@ -16,6 +16,9 @@ namespace DAEMON {
 		extern void time(size_t timer_index, unsigned long int milliseconds);
 		extern void loop(void);
 	}
+	namespace Internet {
+		[[noreturn]] extern void loop(void);
+	}
 	namespace Time {
 		extern void run(void);
 		[[noreturn]] extern void loop(void);

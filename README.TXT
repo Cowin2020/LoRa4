@@ -320,6 +320,13 @@ This value should be larger than UPLOAD_INTERVAL.
 
 Type: natural number
 
+INTERNET_INTERVAL
+-----------------
+
+Period in milliseconds to check internet (WiFi) status
+
+Type: natural number
+
 ROUTER_TOPOLOGY
 ---------------
 

@@ -88,15 +88,17 @@ namespace WIFI {
 	}
 
 	void loop(void) {
-		static wl_status_t last_WiFi = WL_IDLE_STATUS;
-		wl_status_t this_WiFi = WiFi.status();
-		if (this_WiFi != last_WiFi) {
-			COM::print("WiFi status: ");
-			COM::println(status_message(WiFi.status()));
-			last_WiFi = this_WiFi;
-		}
-		if (this_WiFi == WL_CONNECTED) {
-			NTP::synchronize();
+		if (enable_gateway) {
+			static wl_status_t last_WiFi = WL_IDLE_STATUS;
+			wl_status_t this_WiFi = WiFi.status();
+			if (this_WiFi != last_WiFi) {
+				COM::print("WiFi status: ");
+				COM::println(status_message(WiFi.status()));
+				last_WiFi = this_WiFi;
+			}
+			if (this_WiFi == WL_CONNECTED) {
+				NTP::synchronize();
+			}
 		}
 	}
 }

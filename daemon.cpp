@@ -23,6 +23,14 @@
 	#define SEND_INTERVAL (ACK_TIMEOUT * (RESEND_TIMES + 2))
 #endif
 
+static bool const enable_sleep =
+	#if defined(ENABLE_SLEEP)
+		!enable_gateway
+	#else
+		false
+	#endif
+	;
+
 template <typename TYPE>
 static uint8_t rand_int(void) {
 	TYPE x;
@@ -39,33 +47,38 @@ namespace DAEMON {
 		vTaskDelay(ticks>0 ? ticks : 1);
 	}
 
-	#if defined(ENABLE_SLEEP)
-		namespace Sleep {
-			static std::mutex sleep_mutex;
-			static std::condition_variable sleep_condition;
-			static std::mutex timer_mutex;
-			static std::vector<struct Timer> timers;
+	namespace Sleep {
+		static std::mutex sleep_mutex;
+		static std::condition_variable sleep_condition;
+		static std::mutex timer_mutex;
+		static std::vector<struct Timer> timers;
 
-			size_t register_thread(void) {
-				static struct Timer const initial = {.start = 0, .stop = 0};
-				size_t const index = timers.size();
-				timers.push_back(initial);
-				return index;
+		size_t register_thread(void) {
+			static struct Timer const initial = {.start = 0, .stop = 0};
+			size_t const index = timers.size();
+			timers.push_back(initial);
+			return index;
+		}
+
+		void time(size_t const timer_index, unsigned long int const milliseconds) {
+			{
+				std::lock_guard<std::mutex> lock(timer_mutex);
+				struct Timer &timer = timers[timer_index];
+				unsigned long int const now = millis();
+				timer.start = now;
+				timer.stop = now + milliseconds;
 			}
+			sleep_condition.notify_one();
+			std::this_thread::yield();
+		}
 
-			void time(size_t const timer_index, unsigned long int const milliseconds) {
-				{
-					std::lock_guard<std::mutex> lock(timer_mutex);
-					struct Timer &timer = timers[timer_index];
-					unsigned long int const now = millis();
-					timer.start = now;
-					timer.stop = now + milliseconds;
-				}
-				sleep_condition.notify_one();
-			}
+		void loop(void) {
+			if (!enable_sleep) return;
+			for (;;)
+				try {
+					Debug::print("DEBUG: DAEMON::Sleep::loop core=");
+					Debug::println(xPortGetCoreID());
 
-			void loop(void) {
-				for (;;) {
 					bool awake = false;
 					unsigned long int duration = std::numeric_limits<unsigned long int>::max();
 					{
@@ -94,28 +107,37 @@ namespace DAEMON {
 						LORA::sleep();
 						esp_sleep_enable_timer_wakeup(duration * 1000);
 						esp_light_sleep_start();
+						std::this_thread::yield();
 					}
-					Debug::print("DEBUG: DAEMON::Time::loop core=");
-					Debug::println(xPortGetCoreID());
 				}
-			}
+				catch (...) {
+					Debug::println("DEBUG: DAEMON::Sleep::loop exception thrown");
+				}
 		}
-	#else
-		namespace Sleep {
-			size_t register_thread(void) {
-				return 0;
-			}
-			void time(size_t timer_index, unsigned long int milliseconds) {}
-			void loop(void) {}
+	}
+
+	namespace Internet {
+		[[noreturn]]
+		void loop(void) {
+			for (;;)
+				try {
+					WIFI::loop();
+					thread_delay(INTERNET_INTERVAL);
+				}
+				catch (...) {
+					Debug::println("DEBUG: DAEMON::Internet::loop exception thrown");
+				}
 		}
-	#endif
+	}
 
 	namespace Time {
 		static std::mutex mutex;
 		static std::condition_variable condition;
 
 		void run(void) {
+			Debug::println("DEBUG: DAEMON::Time::run");
 			condition.notify_one();
+			std::this_thread::yield();
 		}
 
 		[[noreturn]]
@@ -126,14 +148,15 @@ namespace DAEMON {
 					Debug::println(xPortGetCoreID());
 
 					struct FullTime fulltime;
-					if (!NTP::now(&fulltime)) return;
-					RTC::set(&fulltime);
-					LORA::Send::TIME(&fulltime);
+					if (NTP::now(&fulltime)) {
+						RTC::set(&fulltime);
+						LORA::Send::TIME(&fulltime);
 
-					OLED::home();
-					Display::println("Synchronize: ");
-					Display::println(String(fulltime));
-					OLED::display();
+						OLED::home();
+						Display::print("Synchronize: ");
+						Display::println(String(fulltime));
+						OLED::display();
+					}
 
 					std::unique_lock<std::mutex> lock(mutex);
 					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SYNCHONIZE_INTERVAL));
@@ -214,6 +237,7 @@ namespace DAEMON {
 		void data(struct Data const *const data) {
 			SDCard::add_data(data);
 			condition.notify_one();
+			std::this_thread::yield();
 		}
 
 		void ack(SerialNumber const serial) {
@@ -313,6 +337,7 @@ namespace DAEMON {
 		#endif
 
 		if (enable_gateway) {
+			std::thread(Internet::loop).detach();
 			std::thread(Time::loop).detach();
 		}
 		else {
