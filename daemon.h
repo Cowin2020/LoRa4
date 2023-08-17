@@ -31,6 +31,9 @@ namespace DAEMON {
 	namespace Measure {
 		[[noreturn]] extern void loop(void);
 	}
+	namespace Headless {
+		extern void loop(void);
+	}
 	extern void run(void);
 }
 

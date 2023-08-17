@@ -116,7 +116,7 @@ namespace DAEMON {
 
 		[[noreturn]]
 		void loop(void) {
-			for (;;) {
+			for (;;)
 				try {
 					Debug::print("DEBUG: DAEMON::Time::loop core=");
 					Debug::println(xPortGetCoreID());
@@ -137,7 +137,6 @@ namespace DAEMON {
 				catch (...) {
 					COM::println("ERROR: DAEMON::Time::loop exception thrown");
 				}
-			}
 		}
 	}
 
@@ -153,7 +152,7 @@ namespace DAEMON {
 			size_t const sleep = Sleep::register_thread();
 			last_synchronization = 0;
 			LORA::Send::ASKTIME();
-			for (;;) {
+			for (;;)
 				try {
 					Debug::print("DEBUG: DAEMON::AskTime::loop core=");
 					Debug::println(xPortGetCoreID());
@@ -174,7 +173,6 @@ namespace DAEMON {
 				catch (...) {
 					COM::println("ERROR: DAEMON::AskTime::loop exception thrown");
 				}
-			}
 		}
 	}
 
@@ -216,7 +214,7 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
-			for (;;) {
+			for (;;)
 				try {
 					Debug::print("DEBUG: DAEMON::Push:loop core=");
 					Debug::println(xPortGetCoreID());
@@ -234,7 +232,6 @@ namespace DAEMON {
 				catch (...) {
 					COM::println("ERROR: DAEMON::Push::loop exception thrown");
 				}
-			}
 		}
 	}
 
@@ -250,7 +247,7 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
-			for (;;) {
+			for (;;)
 				try {
 					Debug::print("DEBUG: DAEMON::Measure::loop core=");
 					Debug::println(xPortGetCoreID());
@@ -266,7 +263,30 @@ namespace DAEMON {
 				catch (...) {
 					COM::println("ERROR: DAEMON::Measure::loop exception thrown");
 				}
-			}
+		}
+	}
+
+	namespace Headless {
+		void loop(void) {
+			#if defined(ENABLE_OLED_SWITCH)
+				static bool switched_off = false;
+				pinMode(ENABLE_OLED_SWITCH, INPUT_PULLDOWN);
+				for (;;)
+					try {
+						thread_delay(12345);
+						if (digitalRead(ENABLE_OLED_SWITCH) == LOW) {
+							if (!switched_off)
+								OLED::turn_off();
+						}
+						else {
+							if (switched_off)
+								OLED::turn_on();
+						}
+					}
+					catch (...) {
+						COM::println("ERROR: DAEMON::Display::loop execption thrown");
+					}
+			#endif
 		}
 	}
 
