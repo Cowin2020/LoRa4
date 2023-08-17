@@ -9,6 +9,8 @@
 
 /* ************************************************************************** */
 
+extern unsigned long const CPU_frequency;
+
 namespace RTC {
 	extern bool initialize(void);
 	extern void set(struct FullTime const* fulltime);
@@ -19,8 +21,6 @@ namespace NTP {
 	extern bool now(struct FullTime *fulltime);
 	extern void synchronize(void);
 }
-
-/* ************************************************************************** */
 
 struct [[gnu::packed]] Data {
 	struct FullTime time;

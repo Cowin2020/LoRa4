@@ -19,6 +19,10 @@
 
 /* ************************************************************************** */
 
+#if !defined(SEND_INTERVAL)
+	#define SEND_INTERVAL (ACK_TIMEOUT * (RESEND_TIMES + 2))
+#endif
+
 template <typename TYPE>
 static uint8_t rand_int(void) {
 	TYPE x;
@@ -182,7 +186,12 @@ namespace DAEMON {
 		static std::mutex mutex;
 		static std::condition_variable condition;
 
-		static void send_data(struct Data const *const data) {
+		static void send_delay(size_t const sleep) {
+			Sleep::time(sleep, SEND_INTERVAL);
+			thread_delay(SEND_INTERVAL);
+		}
+
+		static void send_data(struct Data const *const data, size_t const sleep) {
 			if (enable_gateway) {
 				if (WIFI::upload(my_device_id, ++current_serial, data))
 					OLED::draw_received();
@@ -195,7 +204,7 @@ namespace DAEMON {
 				/* TODO: add routing */
 				for (unsigned int t=0; t<RESEND_TIMES; ++t) {
 					LORA::Send::SEND(Device(0), ++current_serial, data);
-					thread_delay(SEND_INTERVAL);
+					send_delay(sleep);
 					if (acked_serial.load() == current_serial.load())
 						break;
 				}
@@ -225,9 +234,8 @@ namespace DAEMON {
 						Sleep::time(sleep, SEND_IDLE_INTERVAL);
 						condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_IDLE_INTERVAL));
 					}
-					std::thread(send_data, &data).detach();
-					Sleep::time(sleep, SEND_INTERVAL);
-					thread_delay(SEND_INTERVAL);
+					std::thread(send_data, &data, sleep).detach();
+					send_delay(sleep);
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Push::loop exception thrown");
@@ -255,7 +263,7 @@ namespace DAEMON {
 					struct Data data;
 					if (Sensor::measure(&data)) {
 						print(&data);
-						Push::send_data(&data);
+						Push::data(&data);
 					}
 					Sleep::time(sleep, MEASURE_INTERVAL);
 					thread_delay(MEASURE_INTERVAL);

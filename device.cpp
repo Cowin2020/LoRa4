@@ -10,6 +10,20 @@ static char const cleanup_file_path[] PROGMEM = "/cleanup.csv";
 
 /* ************************************************************************** */
 
+unsigned long const CPU_frequency =
+	#if defined(CPU_FREQUENCY)
+		enable_gateway
+			? CPU_FREQUENCY >= 80
+				? CPU_FREQUENCY
+				: 80
+			: CPU_FREQUENCY >= 20
+				? CPU_FREQUENCY
+				: 20
+	#else
+		0
+	#endif
+	;
+
 #if !defined(ENABLE_CLOCK)
 	#include <RTClib.h>
 

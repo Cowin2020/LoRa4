@@ -12,21 +12,6 @@
 #include "config_id.h"
 #include "config_device.h"
 
-#if defined(CPU_FREQUENCY)
-	#if !(CPU_FREQUENCY >= 20)
-		#undef CPU_FREQUENCY
-		#define CPU_FREQUENCY 20
-	#endif
-	#if defined(ENABLE_GATEWAY) && !(CPU_FREQUENCY >= 80)
-		#undef CPU_FREQUENCY
-		#define CPU_FREQUENCY 80
-	#endif
-#endif
-
-#if !defined(SEND_INTERVAL)
-	#define SEND_INTERVAL (ACK_TIMEOUT * (RESEND_TIMES + 2))
-#endif
-
 /* ************************************************************************** */
 
 static bool setup_success;
@@ -37,10 +22,7 @@ void setup(void) {
 	LED::initialize();
 	COM::initialize();
 	OLED::initialize();
-
-	#if defined(CPU_FREQUENCY)
-		setCpuFrequencyMhz(CPU_FREQUENCY);
-	#endif
+	setCpuFrequencyMhz(CPU_frequency);
 
 	if (!Sensor::initialize()) goto error;
 	Debug::println("DEBUG: Sensors initialized");

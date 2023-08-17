@@ -32,6 +32,7 @@
 
 /* Timimg */
 #define ACK_TIMEOUT 1000UL /* milliseconds */
+#define RESEND_TIMES 3
 #define SEND_INTERVAL 6000UL /* milliseconds */ /* MUST: > ACK_TIMEOUT * RESEND_TIMES */
 #define SEND_IDLE_INTERVAL 987654UL /* milliseconds */
 #define MEASURE_INTERVAL 60000UL /* milliseconds */ /* MUST: > SEND_INTERVAL */
@@ -44,16 +45,12 @@
 #define ENABLE_LED
 #define ENABLE_COM_OUTPUT
 #define ENABLE_OLED_OUTPUT
+//	#define ENABLE_OLED_SWITCH 34
 #define OLED_ROTATION 2
-#define RESEND_TIMES 3
 
 /* Power saving */
 #define ENABLE_SLEEP
-/* MUST: CPU_FREQUENCY >= 20MHz for LoRa, and >= 80MHz for WiFi */
-#if defined(ENABLE_GATEWAY)
-	#define CPU_FREQUENCY 80 /* MHz */
-#else
-	#define CPU_FREQUENCY 20 /* MHz */
-#endif
+/* CPU_FREQUENCY >= 20MHz for LoRa, and >= 80MHz for WiFi */
+//	#define CPU_FREQUENCY 20 /* MHz */
 
 #endif // INCLUDE_CONFIG_DEVICE_H

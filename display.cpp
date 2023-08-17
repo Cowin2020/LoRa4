@@ -22,15 +22,10 @@
 namespace COM {
 	#ifdef ENABLE_COM_OUTPUT
 		void initialize(void) {
-			#ifdef CPU_FREQUENCY
-				#if CPU_FREQUENCY < 80
-					Serial.begin(COM_BAUD * 80 / CPU_FREQUENCY);
-				#else
-					Serial.begin(COM_BAUD);
-				#endif
-			#else
+			if (CPU_frequency && CPU_frequency < 80)
+				Serial.begin(COM_BAUD * 80 / CPU_frequency);
+			else
 				Serial.begin(COM_BAUD);
-			#endif
 		}
 	#endif
 
