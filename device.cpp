@@ -159,6 +159,10 @@ namespace NTP {
 	static class WiFiUDP WiFiUDP;
 	static class NTPClient NTPClient(WiFiUDP, NTP_SERVER, 0, NTP_INTERVAL);
 
+	void initialize(void) {
+		NTPClient.begin();
+	}
+
 	bool now(struct FullTime *const fulltime) {
 		if (!NTPClient.isTimeSet()) return false;
 		time_t const epoch = NTPClient.getEpochTime();

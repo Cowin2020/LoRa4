@@ -18,6 +18,7 @@ namespace RTC {
 }
 
 namespace NTP {
+	extern void initialize(void);
 	extern bool now(struct FullTime *fulltime);
 	extern void synchronize(void);
 }
