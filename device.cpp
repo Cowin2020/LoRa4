@@ -354,7 +354,7 @@ void Data::println(void) const {
 	Display::println(String(this->time));
 
 	#if defined(ENABLE_BATTERY_GAUGE)
-		Display::print("Battery: ");
+		Display::print("Cell: ");
 		Display::print(this->battery_voltage);
 		Display::print("V ");
 		Display::print(this->battery_percentage);

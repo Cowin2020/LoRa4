@@ -260,39 +260,13 @@ namespace LORA {
 					sizeof (Device) * (1 + routers_length)
 					+ sizeof (SerialNumber);
 				struct Data const data = *reinterpret_cast<struct Data const *>(content.data() + router_list_size);
-
-				#ifdef ENABLE_OLED_OUTPUT
-					OLED::home();
-					OLED::print("Receive ");
-					OLED::print(device);
-					OLED::print(" Serial ");
-					OLED::println(serial);
-					OLED::println(String(data.time));
-					#ifdef ENABLE_BATTERY_GAUGE
-						OLED::print("Battery:");
-						OLED::print(data.battery_voltage);
-						OLED::print("V ");
-						OLED::print(data.battery_percentage);
-						OLED::println('%');
-					#endif
-					#ifdef ENABLE_DALLAS
-						OLED::print("Dallas temp.: ");
-						OLED::println(data.dallas_temperature);
-					#endif
-					#ifdef ENABLE_BME280
-						OLED::print("BME temp.: ");
-						OLED::println(data.bme280_temperature);
-						OLED::print("BME pressure: ");
-						OLED::println(data.bme280_pressure, 0);
-						OLED::print("BME humidity: ");
-						OLED::println(data.bme280_humidity);
-					#endif
-					#ifdef ENABLE_LTR390
-						OLED::print("LTR UV: ");
-						OLED::println(data.ltr390_ultraviolet);
-					#endif
-					OLED::display();
-				#endif
+				OLED::home();
+				OLED::print("Receive ");
+				OLED::print(device);
+				OLED::print(" #");
+				OLED::println(serial);
+				data.println();
+				OLED::display();
 
 				bool const upload_success = WIFI::upload(device, serial, &data);
 				OLED::display();
