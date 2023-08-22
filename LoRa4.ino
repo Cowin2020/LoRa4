@@ -30,10 +30,7 @@ void setup(void) {
 	WIFI::initialize();
 	if (!LORA::initialize()) goto error;
 	DAEMON::run();
-
 	setup_success = true;
-	Display::println("Done setup");
-
 error:
 	OLED::display();
 }
