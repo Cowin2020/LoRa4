@@ -179,7 +179,9 @@ namespace Debug {
 		[[maybe_unused]] void const *const memory,
 		[[maybe_unused]] size_t const size
 	) {
-		COM::dump(label, memory, size);
+		#if !defined(NDEBUG)
+			COM::dump(label, memory, size);
+		#endif
 	}
 
 	[[maybe_unused]]
@@ -188,6 +190,12 @@ namespace Debug {
 			Serial.flush();
 		#endif
 	}
+
+	#if defined(NDEBUG)
+		inline static void println_core(char const *const message) {}
+	#else
+		extern void println_core(char const *message);
+	#endif
 }
 
 /* ************************************************************************** */

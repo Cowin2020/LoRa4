@@ -6,7 +6,6 @@
 #include <mutex>
 #include <condition_variable>
 
-#include <esp_pthread.h>
 #include <RNG.h>
 
 #include "id.h"
@@ -41,6 +40,10 @@ static uint8_t rand_int(void) {
 /* ************************************************************************** */
 
 namespace DAEMON {
+	esp_pthread_cfg_t thread_core_unpin;
+	esp_pthread_cfg_t thread_core_default;
+	esp_pthread_cfg_t thread_core_opposite;
+
 	void thread_delay(unsigned long int const ms) {
 		//	TickType_t const ticks = ms / portTICK_PERIOD_MS;
 		TickType_t const ticks = pdMS_TO_TICKS(ms);
@@ -52,6 +55,8 @@ namespace DAEMON {
 		static std::condition_variable sleep_condition;
 		static std::mutex timer_mutex;
 		static std::vector<struct Timer> timers;
+
+		std::atomic<bool> keep_await(false);
 
 		size_t register_thread(void) {
 			static struct Timer const initial = {.start = 0, .stop = 0};
@@ -72,29 +77,27 @@ namespace DAEMON {
 			std::this_thread::yield();
 		}
 
+		void woke(size_t const timer_index) {
+			time(timer_index, 0);
+		}
+
 		void loop(void) {
 			if (!enable_sleep) return;
+			if (keep_await.load()) return;
 			for (;;)
 				try {
-					Debug::print("DEBUG: DAEMON::Sleep::loop core=");
-					Debug::println(xPortGetCoreID());
-
+					Debug::println_core("DEBUG: DAEMON::Sleep::loop core=");
 					bool awake = false;
-					unsigned long int duration = std::numeric_limits<unsigned long int>::max();
+					unsigned long int duration = MEASURE_INTERVAL;
 					{
 						std::lock_guard<std::mutex> lock(timer_mutex);
 						unsigned long int const now = millis();
 						for (struct Timer &timer : timers)
-							if (now - timer.start < timer.stop - timer.start) {
-								if (duration > timer.stop - now)
-									duration = timer.stop - now;
-							}
-							else
+							if (now - timer.start >= timer.stop - timer.start)
 								awake = true;
+							else if (duration > timer.stop - now)
+								duration = timer.stop - now;
 					}
-					if (duration > MEASURE_INTERVAL)
-						duration = MEASURE_INTERVAL;
-
 					if (awake || duration <= SLEEP_MARGIN) {
 						std::unique_lock<std::mutex> lock(sleep_mutex);
 						sleep_condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(duration));
@@ -104,6 +107,7 @@ namespace DAEMON {
 						Debug::print(duration);
 						Debug::println("ms");
 						Debug::flush();
+						std::this_thread::yield();
 						LORA::sleep();
 						esp_sleep_enable_timer_wakeup(duration * 1000);
 						esp_light_sleep_start();
@@ -111,7 +115,7 @@ namespace DAEMON {
 					}
 				}
 				catch (...) {
-					Debug::println("DEBUG: DAEMON::Sleep::loop exception thrown");
+					COM::println("ERROR: DAEMON::Sleep::loop exception thrown");
 				}
 		}
 	}
@@ -125,7 +129,7 @@ namespace DAEMON {
 					thread_delay(INTERNET_INTERVAL);
 				}
 				catch (...) {
-					Debug::println("DEBUG: DAEMON::Internet::loop exception thrown");
+					COM::println("ERROR: DAEMON::Internet::loop exception thrown");
 				}
 		}
 	}
@@ -135,7 +139,6 @@ namespace DAEMON {
 		static std::condition_variable condition;
 
 		void run(void) {
-			Debug::println("DEBUG: DAEMON::Time::run");
 			condition.notify_one();
 			std::this_thread::yield();
 		}
@@ -144,9 +147,7 @@ namespace DAEMON {
 		void loop(void) {
 			for (;;)
 				try {
-					Debug::print("DEBUG: DAEMON::Time::loop core=");
-					Debug::println(xPortGetCoreID());
-
+					Debug::println_core("DEBUG: DAEMON::Time::loop core=");
 					struct FullTime fulltime;
 					if (NTP::now(&fulltime)) {
 						RTC::set(&fulltime);
@@ -181,9 +182,7 @@ namespace DAEMON {
 			LORA::Send::ASKTIME();
 			for (;;)
 				try {
-					Debug::print("DEBUG: DAEMON::AskTime::loop core=");
-					Debug::println(xPortGetCoreID());
-
+					Debug::println_core("DEBUG: DAEMON::AskTime::loop core=");
 					unsigned long int now = millis();
 					unsigned long int passed = now - last_synchronization;
 					if (passed < SYNCHONIZE_INTERVAL) {
@@ -208,29 +207,35 @@ namespace DAEMON {
 		static std::atomic<SerialNumber> acked_serial(0);
 		static std::mutex mutex;
 		static std::condition_variable condition;
+		static std::atomic<bool> send_success;
 
 		static void send_delay(size_t const sleep) {
 			Sleep::time(sleep, SEND_INTERVAL);
-			thread_delay(SEND_INTERVAL);
+			thread_delay(ACK_TIMEOUT);
 		}
 
-		static void send_data(struct Data const *const data, size_t const sleep) {
+		static void send_data(struct Data const *const data) {
 			if (enable_gateway) {
 				if (WIFI::upload(my_device_id, ++current_serial, data))
 					OLED::draw_received();
 				else {
-					COM::print("HTTP: unable to send data: time=");
+					COM::print("HTTP unable to send data: time=");
 					COM::println(String(data->time));
 				}
 			}
 			else {
 				/* TODO: add routing */
+				Sleep::keep_await = true;
+				send_success = false;
 				for (unsigned int t=0; t<RESEND_TIMES; ++t) {
-					LORA::Send::SEND(Device(0), ++current_serial, data);
-					send_delay(sleep);
-					if (acked_serial.load() == current_serial.load())
+					LORA::Send::SEND(my_device_id, ++current_serial, data);
+					thread_delay(ACK_TIMEOUT);
+					if (acked_serial.load() == current_serial.load()) {
+						send_success = true;
 						break;
+					}
 				}
+				Sleep::keep_await = false;
 			}
 		}
 
@@ -249,20 +254,41 @@ namespace DAEMON {
 			size_t const sleep = Sleep::register_thread();
 			for (;;)
 				try {
-					Debug::print("DEBUG: DAEMON::Push:loop core=");
-					Debug::println(xPortGetCoreID());
-
+					Debug::println_core("DEBUG: DAEMON::Push:loop core=");
 					struct Data data;
-					if (!SDCard::read_data(&data)) {
-						std::unique_lock<std::mutex> lock(mutex);
+					if (SDCard::read_data(&data)) {
+						esp_pthread_set_cfg(&thread_core_opposite);
+						std::thread(send_data, &data).detach();
+					}
+
+					std::unique_lock<std::mutex> lock(mutex);
+					if (send_success) {
+						Sleep::time(sleep, SEND_INTERVAL);
+						condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_INTERVAL));
+						Sleep::woke(sleep);
+					}
+					else {
 						Sleep::time(sleep, SEND_IDLE_INTERVAL);
 						condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_IDLE_INTERVAL));
+						Sleep::woke(sleep);
 					}
-					std::thread(send_data, &data, sleep).detach();
-					send_delay(sleep);
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Push::loop exception thrown");
+				}
+		}
+	}
+
+	namespace CleanLog {
+		void loop(void) {
+			for (;;)
+				try {
+					thread_delay(CLEANLOG_INTERVAL);
+					Debug::println_core("DEBUG: DAEMON::CleanLog:loop core=");
+					SDCard::clean_up();
+				}
+				catch (...) {
+					COM::println("ERROR: DAEMON::CleanData::loop exception thrown");
 				}
 		}
 	}
@@ -281,14 +307,13 @@ namespace DAEMON {
 			size_t const sleep = Sleep::register_thread();
 			for (;;)
 				try {
-					Debug::print("DEBUG: DAEMON::Measure::loop core=");
-					Debug::println(xPortGetCoreID());
-
+					Debug::println_core("DEBUG: DAEMON::Measure::loop core=");
 					struct Data data;
 					if (Sensor::measure(&data)) {
 						print(&data);
 						Push::data(&data);
 					}
+					else COM::println("Failed to measure");
 					Sleep::time(sleep, MEASURE_INTERVAL);
 					thread_delay(MEASURE_INTERVAL);
 				}
@@ -306,6 +331,7 @@ namespace DAEMON {
 				for (;;)
 					try {
 						thread_delay(12345);
+						Debug::println_core("DEBUG: DAEMON::Headless::loop core=");
 						if (digitalRead(ENABLE_OLED_SWITCH) == LOW) {
 							if (!switched_off)
 								OLED::turn_off();
@@ -323,14 +349,15 @@ namespace DAEMON {
 	}
 
 	void run(void) {
-		esp_pthread_cfg_t core_unpin = esp_pthread_get_default_config();
-		core_unpin.stack_size = 4096;
-		esp_pthread_cfg_t core_default = core_unpin;
-		core_default.pin_to_core = xPortGetCoreID();
-		esp_pthread_cfg_t core_opposite = core_unpin;
-		core_opposite.pin_to_core = 1 ^ xPortGetCoreID() & 1;
+		thread_core_unpin = esp_pthread_get_default_config();
+		thread_core_unpin.stack_size = 4096;
+		thread_core_unpin.inherit_cfg = true;
+		thread_core_default = thread_core_unpin;
+		thread_core_default.pin_to_core = xPortGetCoreID();
+		thread_core_opposite = thread_core_unpin;
+		thread_core_opposite.pin_to_core = 1 ^ xPortGetCoreID() & 1;
 
-		esp_pthread_set_cfg(&core_opposite);
+		esp_pthread_set_cfg(&thread_core_opposite);
 
 		#if defined(ENABLE_SLEEP)
 			std::thread(Sleep::loop).detach();
@@ -346,8 +373,12 @@ namespace DAEMON {
 
 		if (enable_measure) {
 			std::thread(Push::loop).detach();
-			esp_pthread_set_cfg(&core_default);
+			esp_pthread_set_cfg(&thread_core_default);
 			std::thread(Measure::loop).detach();
+			esp_pthread_set_cfg(&thread_core_opposite);
+			#if defined(ENABLE_SDCARD)
+				std::thread(CleanLog::loop).detach();
+			#endif
 		}
 	}
 }

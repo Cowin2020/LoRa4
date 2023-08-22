@@ -27,16 +27,16 @@ namespace COM {
 			else
 				Serial.begin(COM_BAUD);
 		}
-	#endif
 
-	void dump(char const *const label, void const *const memory, size_t const size) {
-		Serial.printf("%s (%04X)", label, size);
-		for (size_t i = 0; i < size; ++i) {
-			unsigned char const c = i[(unsigned char const *)memory];
-			Serial.printf(" %02X", c);
+		void dump(char const *const label, void const *const memory, size_t const size) {
+			Serial.printf("%s (%04X)", label, size);
+			for (size_t i = 0; i < size; ++i) {
+				unsigned char const c = reinterpret_cast<unsigned char const *>(memory)[i];
+				Serial.printf(" %02X", c);
+			}
+			Serial.write('\n');
 		}
-		Serial.write('\n');
-	}
+	#endif
 }
 
 namespace OLED {
@@ -66,6 +66,15 @@ namespace OLED {
 			SSD1306.clearDisplay();
 			SSD1306.display();
 			SSD1306.setCursor(0, 0);
+		}
+	#endif
+}
+
+namespace Debug {
+	#if !defined(NDEBUG)
+		void println_core(char const *const message) {
+			BaseType_t const core = xPortGetCoreID();
+			Debug::print(String(message) + core + '\n');
 		}
 	#endif
 }

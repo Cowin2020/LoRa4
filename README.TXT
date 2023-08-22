@@ -110,6 +110,20 @@ Skip debug codes.
 
 Type: defined or undefined
 
+DEBUG_CLEAN_DATA
+----------------
+
+Clean all data on SD card at boot-up.
+
+Type: defined or undefined
+
+LOG_DATA
+--------
+
+All measured data will be saved in log file on SD card.
+
+Type: defined or undefined
+
 DEVICE_ID
 ---------
 

@@ -3,17 +3,24 @@
 
 #include <atomic>
 
+#include <esp_pthread.h>
+
 /* ************************************************************************** */
 
 namespace DAEMON {
+	extern esp_pthread_cfg_t thread_core_unpin;
+	extern esp_pthread_cfg_t thread_core_default;
+	extern esp_pthread_cfg_t thread_core_opposite;
 	extern void thread_delay(unsigned long int ms);
 	namespace Sleep {
 		struct Timer {
 			unsigned long int start;
 			unsigned long int stop;
 		};
+		extern std::atomic<bool> keep_await;
 		extern size_t register_thread(void);
 		extern void time(size_t timer_index, unsigned long int milliseconds);
+		extern void woke(size_t const timer_index);
 		extern void loop(void);
 	}
 	namespace Internet {

@@ -33,7 +33,7 @@ typedef uint8_t PacketType;
 typedef GCM<AES128> AuthCipher;
 
 static Device const router_topology[][2] = ROUTER_TOPOLOGY;
-static char const secret_key[16] PROGMEM = SECRET_KEY;
+static PROGMEM char const secret_key[16] = SECRET_KEY;
 
 template<typename TO, typename FROM>
 static inline TO *pointer_offset(FROM *const from, size_t const offset) {
@@ -87,11 +87,8 @@ namespace LORA {
 		static bool payload(char const *const message, void const *const content, size_t const size) {
 			Debug::print("DEBUG: LORA::Send::payload ");
 			Debug::println(message);
-
-			uint8_t nonce[CIPHER_IV_LENGTH];
-			RNG.rand(nonce, sizeof nonce);
 			AuthCipher cipher;
-			if (!cipher.setKey((uint8_t const *)secret_key, sizeof secret_key)) {
+			if (!cipher.setKey(reinterpret_cast<uint8_t const *>(secret_key), sizeof secret_key)) {
 				COM::print("LoRa ");
 				COM::print(message);
 				COM::println(": unable to set key");
@@ -100,6 +97,8 @@ namespace LORA {
 				#endif
 				return false;
 			}
+			uint8_t nonce[CIPHER_IV_LENGTH];
+			RNG.rand(nonce, sizeof nonce);
 			if (!cipher.setIV(nonce, sizeof nonce)) {
 				COM::print("LoRa ");
 				COM::print(message);
@@ -109,13 +108,14 @@ namespace LORA {
 				#endif
 				return false;
 			}
-			char ciphertext[size];
-			cipher.encrypt((uint8_t *)&ciphertext, (uint8_t const *)content, size);
+
+			std::vector<uint8_t> ciphertext(size);
+			cipher.encrypt(ciphertext.data(), reinterpret_cast<uint8_t const *>(content), size);
 			uint8_t tag[CIPHER_TAG_SIZE];
 			cipher.computeTag(tag, sizeof tag);
 			LoRa.write(nonce, sizeof nonce);
-			LoRa.write((uint8_t const *)&ciphertext, sizeof ciphertext);
-			LoRa.write((uint8_t const *)&tag, sizeof tag);
+			LoRa.write(ciphertext.data(), ciphertext.size());
+			LoRa.write(tag, sizeof tag);
 
 			Debug::dump("DEBUG: LORA::Send::payload", content, size);
 			return true;
@@ -140,22 +140,17 @@ namespace LORA {
 		}
 
 		void SEND(Device const receiver, SerialNumber const serial, Data const *const data) {
-			Debug::print("DEBUG: LORA::Send::SEND receiver=");
-			Debug::print(receiver);
-			Debug::print(" serial=");
-			Debug::println(serial);
-
-			unsigned char content[2 * sizeof my_device_id + sizeof serial + sizeof *data];
-			std::memcpy(content, &my_device_id, sizeof my_device_id);
-			std::memcpy(content + sizeof my_device_id, &my_device_id, sizeof my_device_id);
-			std::memcpy(content + 2 * sizeof my_device_id, &serial, sizeof serial);
-			std::memcpy(content + 2 * sizeof my_device_id + sizeof serial, data, sizeof *data);
+			std::vector<unsigned char> content(static_cast<size_t>(2 * sizeof my_device_id + sizeof serial + sizeof *data));
+			std::memcpy(content.data(), &my_device_id, sizeof my_device_id);
+			std::memcpy(content.data() + sizeof my_device_id, &my_device_id, sizeof my_device_id);
+			std::memcpy(content.data() + 2 * sizeof my_device_id, &serial, sizeof serial);
+			std::memcpy(content.data() + 2 * sizeof my_device_id + sizeof serial, data, sizeof *data);
 
 			std::lock_guard<std::mutex> lock(mutex);
 			LoRa.beginPacket();
-			LoRa.write(uint8_t(PACKET_SEND));
-			LoRa.write(uint8_t(receiver));
-			payload("SEND", content, sizeof content);
+			LoRa.write(static_cast<uint8_t>(PACKET_SEND));
+			LoRa.write(static_cast<uint8_t>(receiver));
+			payload("SEND", content.data(), content.size());
 			LoRa.endPacket();
 		}
 	}
@@ -294,16 +289,12 @@ namespace LORA {
 				}
 
 				Device const receiver = *reinterpret_cast<Device const *>(content.data());
-				Debug::print("DEBUG: LORA::Receive::SEND receiver=");
-				Debug::println(receiver);
 				if (receiver != my_device_id) return;
 
-				std::vector<uint8_t> bounce(content.size() + 1);
-				std::memcpy(bounce.data(), content.data() + sizeof (Device), sizeof (Device));
-				std::memcpy(bounce.data() + sizeof (Device), &receiver, sizeof (Device));
-
-				Debug::print("DEBUG: LORA::Receive::SEND last_receiver=");
-				Debug::println(last_receiver);
+				std::vector<uint8_t> bounce(content.size() + sizeof (Device));
+				std::memcpy(bounce.data() + sizeof (Device), content.data(), content.size());
+				std::memcpy(bounce.data(), content.data(), sizeof (Device));
+				std::memcpy(bounce.data() + sizeof (Device), &receiver, sizeof receiver);
 
 				std::lock_guard<std::mutex> lock(mutex);
 				LoRa.beginPacket();
@@ -326,8 +317,6 @@ namespace LORA {
 					return;
 				}
 
-				Debug::print("DEBUG: LORA::Receive::ACK receiver=");
-				Debug::println(receiver);
 				if (my_device_id != receiver) return;
 
 				Device const terminal = *reinterpret_cast<Device const *>(content.data());
@@ -372,9 +361,6 @@ namespace LORA {
 
 			PacketType const *const packet_type = packet.data();
 			Device const *const device = pointer_offset<Device>(packet_type, sizeof *packet_type);
-			Debug::print("DEBUG: LORA::Receive::decode device=");
-			Debug::println(*device);
-
 			uint8_t const *const nonce = pointer_offset<uint8_t>(device, sizeof *device);
 			size_t const content_size = packet.size() - overhead_size;
 			uint8_t const *const ciphertext = nonce + CIPHER_IV_LENGTH;

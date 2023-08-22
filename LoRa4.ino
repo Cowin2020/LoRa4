@@ -5,6 +5,7 @@
 #include "device.h"
 #include "inet.h"
 #include "lora.h"
+#include "sdcard.h"
 #include "daemon.h"
 
 /* ************************************************************************** */
@@ -23,14 +24,11 @@ void setup(void) {
 	COM::initialize();
 	OLED::initialize();
 	setCpuFrequencyMhz(CPU_frequency);
-
+	if (!SDCard::initialize()) goto error;
+	if (!RTC::initialize()) goto error;
 	if (!Sensor::initialize()) goto error;
-	Debug::println("DEBUG: Sensors initialized");
 	WIFI::initialize();
-	Debug::println("DEBUG: WiFi initialized");
 	if (!LORA::initialize()) goto error;
-	Debug::println("DEBUG: LoRa initialized");
-
 	DAEMON::run();
 
 	setup_success = true;
