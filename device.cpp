@@ -5,11 +5,6 @@
 
 /* ************************************************************************** */
 
-static char const data_file_path[] PROGMEM = "/data.csv";
-static char const cleanup_file_path[] PROGMEM = "/cleanup.csv";
-
-/* ************************************************************************** */
-
 unsigned long const CPU_frequency =
 	#if defined(CPU_FREQUENCY)
 		enable_gateway
