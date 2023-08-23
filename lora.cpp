@@ -49,6 +49,8 @@ namespace LORA {
 	static std::mutex mutex;
 	static Device last_receiver = 0;
 
+	unsigned long int last_time = 0;
+
 	bool initialize(void) {
 		SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
 		LoRa.setPins(LORA_CS, LORA_RST, LORA_IRQ);
@@ -73,6 +75,7 @@ namespace LORA {
 			return false;
 		}
 		LoRa.enableCrc();
+		last_received = millis();
 		OLED_LOCK(oled_lock);
 		Display::println("LoRa initialized");
 		return true;

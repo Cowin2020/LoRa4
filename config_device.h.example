@@ -37,11 +37,12 @@
 #define SEND_INTERVAL 6000UL /* milliseconds */ /* MUST: > ACK_TIMEOUT * RESEND_TIMES */
 #define SEND_IDLE_INTERVAL 987654UL /* milliseconds */
 #define MEASURE_INTERVAL 60000UL /* milliseconds */ /* MUST: > SEND_INTERVAL */
-#define INTERNET_INTERVAL 4321 /* milliseconds */
+#define INTERNET_INTERVAL 4321UL /* milliseconds */
 #define SYNCHONIZE_INTERVAL 12345678UL /* milliseconds */
 #define SYNCHONIZE_MARGIN 1234UL /* milliseconds */
 #define CLEANLOG_INTERVAL 86400000UL /* milliseconds */
 #define SLEEP_MARGIN 1000 /* milliseconds */
+#define REBOOT_TIMEOUT 3600000UL /* milliseconds */
 
 /* Display */
 #define ENABLE_LED

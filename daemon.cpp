@@ -127,6 +127,10 @@ namespace DAEMON {
 			for (;;)
 				try {
 					WIFI::loop();
+					#if defined(REBOOT_TIMEOUT)
+						unsigned long int const now = millis();
+						if (now - LORA::last_time > REBOOT_TIMEOUT) esp_restart();
+					#endif
 					thread_delay(INTERNET_INTERVAL);
 				}
 				catch (...) {
