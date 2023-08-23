@@ -75,7 +75,7 @@ namespace LORA {
 			return false;
 		}
 		LoRa.enableCrc();
-		last_received = millis();
+		last_time = millis();
 		OLED_LOCK(oled_lock);
 		Display::println("LoRa initialized");
 		return true;

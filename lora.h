@@ -6,6 +6,7 @@
 /* ************************************************************************** */
 
 namespace LORA {
+	extern unsigned long int last_time;
 	extern bool initialize(void);
 	extern void sleep(void);
 	namespace Send {

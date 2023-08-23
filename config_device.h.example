@@ -48,7 +48,7 @@
 #define ENABLE_LED
 #define ENABLE_COM_OUTPUT
 #define ENABLE_OLED_OUTPUT
-//	#define ENABLE_OLED_SWITCH 34
+#define ENABLE_OLED_SWITCH 34
 #define OLED_ROTATION 2
 
 /* Power saving */

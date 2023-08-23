@@ -395,6 +395,11 @@ namespace DAEMON {
 				std::thread(CleanLog::loop).detach();
 			#endif
 		}
+
+		#if defined(ENABLE_OLED_SWITCH)
+			esp_pthread_set_cfg(&esp_pthread_cfg);
+			std::thread(Headless::loop).detach();
+		#endif
 	}
 }
 
