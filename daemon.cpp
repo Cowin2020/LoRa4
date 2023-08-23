@@ -40,9 +40,7 @@ static uint8_t rand_int(void) {
 /* ************************************************************************** */
 
 namespace DAEMON {
-	esp_pthread_cfg_t thread_core_unpin;
-	esp_pthread_cfg_t thread_core_default;
-	esp_pthread_cfg_t thread_core_opposite;
+	static esp_pthread_cfg_t esp_pthread_cfg;
 
 	void thread_delay(unsigned long int const ms) {
 		//	TickType_t const ticks = ms / portTICK_PERIOD_MS;
@@ -191,7 +189,9 @@ namespace DAEMON {
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
 			last_synchronization = 0;
+			thread_delay(SYNCHONIZE_TIMEOUT);
 			LORA::Send::ASKTIME();
+			thread_delay(SYNCHONIZE_TIMEOUT);
 			for (;;)
 				try {
 					{
@@ -280,7 +280,7 @@ namespace DAEMON {
 					}
 					struct Data data;
 					if (SDCard::read_data(&data)) {
-						esp_pthread_set_cfg(&thread_core_opposite);
+						esp_pthread_set_cfg(&esp_pthread_cfg);
 						std::thread(send_data, &data).detach();
 					}
 
@@ -389,33 +389,32 @@ namespace DAEMON {
 	}
 
 	void run(void) {
-		thread_core_unpin = esp_pthread_get_default_config();
-		thread_core_unpin.stack_size = 4096;
-		//	thread_core_unpin.inherit_cfg = true;
-		thread_core_default = thread_core_unpin;
-		thread_core_default.pin_to_core = xPortGetCoreID();
-		thread_core_opposite = thread_core_unpin;
-		thread_core_opposite.pin_to_core = 1 ^ xPortGetCoreID() & 1;
-
-		esp_pthread_set_cfg(&thread_core_opposite);
+		esp_pthread_cfg = esp_pthread_get_default_config();
+		esp_pthread_cfg.stack_size = 4096;
+		esp_pthread_cfg.inherit_cfg = true;
 
 		#if defined(ENABLE_SLEEP)
+			esp_pthread_set_cfg(&esp_pthread_cfg);
 			std::thread(Sleep::loop).detach();
 		#endif
 
 		if (enable_gateway) {
+			esp_pthread_set_cfg(&esp_pthread_cfg);
 			std::thread(Internet::loop).detach();
+			esp_pthread_set_cfg(&esp_pthread_cfg);
 			std::thread(Time::loop).detach();
 		}
 		else {
+			esp_pthread_set_cfg(&esp_pthread_cfg);
 			std::thread(AskTime::loop).detach();
 		}
 
 		if (enable_measure) {
+			esp_pthread_set_cfg(&esp_pthread_cfg);
 			std::thread(Push::loop).detach();
-			//	esp_pthread_set_cfg(&thread_core_default);
+			esp_pthread_set_cfg(&esp_pthread_cfg);
 			std::thread(Measure::loop).detach();
-			//	esp_pthread_set_cfg(&thread_core_opposite);
+			esp_pthread_set_cfg(&esp_pthread_cfg);
 			#if defined(ENABLE_SDCARD)
 				std::thread(CleanLog::loop).detach();
 			#endif
