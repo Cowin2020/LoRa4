@@ -20,7 +20,7 @@ namespace SDCard {
 	#if defined(ENABLE_SDCARD)
 		static char const data_file_path[] = DATA_FILE_PATH;
 		static char const cleanup_file_path[] = CLEANUP_FILE_PATH;
-		#if defined(LOG_DATA)
+		#if defined(ENABLE_LOG_FILE)
 			static char const log_file_path[] = LOG_FILE_PATH;
 		#endif
 		static class SPIClass SPI_1(HSPI);
@@ -89,7 +89,7 @@ namespace SDCard {
 				}
 				data_file.close();
 			}
-			#if defined(LOG_DATA)
+			#if defined(ENABLE_LOG_FILE)
 				class File log_file = SD.open(log_file_path, "a");
 				if (!log_file) {
 					OLED_LOCK(oled_lock);
