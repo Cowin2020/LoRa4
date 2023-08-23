@@ -391,16 +391,11 @@ namespace Sensor {
 
 		if (!enable_measure) return true;
 
+		OLED_LOCK(oled_lock);
+
 		/* Initial battery gauge */
 		#if defined(ENABLE_BATTERY_GAUGE)
-			#if ENABLE_BATTERY_GAUGE == BATTERY_GAUGE_DFROBOT
-				{
-					OLED_LOCK(lock);
-					battery.begin();
-				}
-			#else
-				battery.begin();
-			#endif
+			battery.begin();
 		#endif
 
 		/* Initialize Dallas thermometer */
@@ -408,11 +403,9 @@ namespace Sensor {
 			dallas.begin();
 			DeviceAddress thermometer_address;
 			if (dallas.getAddress(thermometer_address, 0)) {
-				OLED_LOCK(lock);
 				Display::println("Thermometer 0 found");
 			}
 			else {
-				OLED_LOCK(lock);
 				Display::println("Thermometer 0 not found");
 				return false;
 			}
@@ -421,11 +414,9 @@ namespace Sensor {
 		/* Initialize BME280 sensor */
 		#if defined(ENABLE_BME280)
 			if (BME.begin()) {
-				OLED_LOCK(lock);
 				Display::println("BME280 sensor found");
 			}
 			else {
-				OLED_LOCK(lock);
 				Display::println("BME280 sensor not found");
 				return false;
 			}
@@ -435,11 +426,9 @@ namespace Sensor {
 		#if defined(ENABLE_LTR390)
 			if (LTR.begin()) {
 				LTR.setMode(LTR390_MODE_UVS);
-				OLED_LOCK(lock);
 				Display::println("LTR390 sensor found");
 			}
 			else {
-				OLED_LOCK(lock);
 				Display::println("LTR390 sensor not found");
 				return false;
 			}
@@ -449,6 +438,7 @@ namespace Sensor {
 	}
 
 	bool measure(struct Data *const data) {
+		OLED_LOCK(oled_lock);
 		if (!RTC::now(&data->time))
 			return false;
 		#if defined(ENABLE_BATTERY_GAUGE)
