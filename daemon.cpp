@@ -84,11 +84,7 @@ namespace DAEMON {
 			if (keep_await.load()) return;
 			for (;;)
 				try {
-					{
-						OLED_LOCK(oled_lock);
-						Debug::print("DEBUG: DAEMON::Sleep::loop core=");
-						Debug::println(xPortGetCoreID());
-					}
+					Debug::print_thread("DEBUG: DAEMON::Sleep::loop");
 					bool awake = false;
 					unsigned long int duration = MEASURE_INTERVAL;
 					{
@@ -152,11 +148,7 @@ namespace DAEMON {
 		void loop(void) {
 			for (;;)
 				try {
-					{
-						OLED_LOCK(oled_lock);
-						Debug::print("DEBUG: DAEMON::Time::loop core=");
-						Debug::println(xPortGetCoreID());
-					}
+					Debug::print_thread("DEBUG: DAEMON::Time::loop");
 					struct FullTime fulltime;
 					if (NTP::now(&fulltime)) {
 						RTC::set(&fulltime);
@@ -194,11 +186,7 @@ namespace DAEMON {
 			thread_delay(SYNCHONIZE_TIMEOUT);
 			for (;;)
 				try {
-					{
-						OLED_LOCK(oled_lock);
-						Debug::print("DEBUG: DAEMON::AskTime::loop core=");
-						Debug::println(xPortGetCoreID());
-					}
+					Debug::print_thread("DEBUG: DAEMON::AskTime::loop");
 					unsigned long int now = millis();
 					unsigned long int passed = now - last_synchronization;
 					if (passed < SYNCHONIZE_INTERVAL) {
@@ -273,11 +261,7 @@ namespace DAEMON {
 			size_t const sleep = Sleep::register_thread();
 			for (;;)
 				try {
-					{
-						OLED_LOCK(oled_lock);
-						Debug::print("DEBUG: DAEMON::Push::loop core=");
-						Debug::println(xPortGetCoreID());
-					}
+					Debug::print_thread("DEBUG: DAEMON::Push::loop");
 					struct Data data;
 					if (SDCard::read_data(&data)) {
 						esp_pthread_set_cfg(&esp_pthread_cfg);
@@ -307,11 +291,7 @@ namespace DAEMON {
 			for (;;)
 				try {
 					thread_delay(CLEANLOG_INTERVAL);
-					{
-						OLED_LOCK(oled_lock);
-						Debug::print("DEBUG: DAEMON::CleanLog::loop core=");
-						Debug::println(xPortGetCoreID());
-					}
+					Debug::print_thread("DEBUG: DAEMON::CleanLog::loop");
 					SDCard::clean_up();
 				}
 				catch (...) {
@@ -321,7 +301,7 @@ namespace DAEMON {
 	}
 
 	namespace Measure {
-		static void print(struct Data const *const data) {
+		static void print_data(struct Data const *const data) {
 			OLED_LOCK(lock);
 			OLED::home();
 			Display::print("Device ");
@@ -335,14 +315,10 @@ namespace DAEMON {
 			size_t const sleep = Sleep::register_thread();
 			for (;;)
 				try {
-					{
-						OLED_LOCK(lock);
-						Debug::print("DEBUG: DAEMON::Measure::loop core=");
-						Debug::println(xPortGetCoreID());
-					}
+					Debug::print_thread("DEBUG: DAEMON::Measure::loop");
 					struct Data data;
 					if (Sensor::measure(&data)) {
-						print(&data);
+						print_data(&data);
 						Push::data(&data);
 					}
 					else COM::println("Failed to measure");
@@ -363,11 +339,7 @@ namespace DAEMON {
 				for (;;)
 					try {
 						thread_delay(12345);
-						{
-							OLED_LOCK(lock);
-							Debug::print("DEBUG: DAEMON::Headless::loop core=");
-							Debug::println(xPortGetCoreID());
-						}
+						Debug::print_thread("DEBUG: DAEMON::Headless::loop");
 						if (digitalRead(ENABLE_OLED_SWITCH) == LOW) {
 							if (!switched_off) {
 								OLED_LOCK(lock);

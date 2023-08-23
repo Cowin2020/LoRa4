@@ -194,6 +194,12 @@ namespace Debug {
 		#endif
 	}
 
+	#if defined(NDEBUG)
+		inline static void print_thread(void) {}
+	#else
+		extern void print_thread(char const *message);
+	#endif
+
 	[[maybe_unused]]
 	inline static void flush(void) {
 		#if !defined(NDEBUG) && defined(ENABLE_COM_OUTPUT)

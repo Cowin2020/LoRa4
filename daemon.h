@@ -8,9 +8,6 @@
 /* ************************************************************************** */
 
 namespace DAEMON {
-	extern esp_pthread_cfg_t thread_core_unpin;
-	extern esp_pthread_cfg_t thread_core_default;
-	extern esp_pthread_cfg_t thread_core_opposite;
 	extern void thread_delay(unsigned long int ms);
 	namespace Sleep {
 		struct Timer {
