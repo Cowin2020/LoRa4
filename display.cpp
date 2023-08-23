@@ -41,14 +41,17 @@ namespace COM {
 
 namespace OLED {
 	Adafruit_SSD1306 SSD1306(OLED_WIDTH, OLED_HEIGHT);
+	std::mutex mutex;
 
 	void turn_on(void) {
+		std::lock_guard<std::mutex> lock(mutex);
 		SSD1306.ssd1306_command(SSD1306_CHARGEPUMP);
 		SSD1306.ssd1306_command(0x14);
 		SSD1306.ssd1306_command(SSD1306_DISPLAYON);
 	}
 
 	void turn_off(void) {
+		std::lock_guard<std::mutex> lock(mutex);
 		SSD1306.ssd1306_command(SSD1306_CHARGEPUMP);
 		SSD1306.ssd1306_command(0x10);
 		SSD1306.ssd1306_command(SSD1306_DISPLAYOFF);
@@ -58,6 +61,7 @@ namespace OLED {
 		class String message;
 
 		void initialize(void) {
+			std::lock_guard<std::mutex> lock(mutex);
 			SSD1306.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR);
 			SSD1306.invertDisplay(false);
 			SSD1306.setRotation(OLED_ROTATION);
@@ -66,15 +70,6 @@ namespace OLED {
 			SSD1306.clearDisplay();
 			SSD1306.display();
 			SSD1306.setCursor(0, 0);
-		}
-	#endif
-}
-
-namespace Debug {
-	#if !defined(NDEBUG)
-		void println_core(char const *const message) {
-			BaseType_t const core = xPortGetCoreID();
-			Debug::print(String(message) + core + '\n');
 		}
 	#endif
 }

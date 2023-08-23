@@ -24,6 +24,8 @@ unsigned long const CPU_frequency =
 	#endif
 	;
 
+std::mutex wire2_mutex;
+
 #if !defined(ENABLE_CLOCK)
 	#include <RTClib.h>
 
@@ -119,11 +121,13 @@ unsigned long const CPU_frequency =
 
 		bool initialize(void) {
 			if (!external_clock.begin()) {
+				OLED_LOCK(lock);
 				Display::println("Clock not found");
 				return false;
 			}
 			#if ENABLE_CLOCK == CLOCK_DS1307
 				if (!external_clock.isrunning()) {
+					OLED_LOCK(lock);
 					Display::println("DS1307 not running");
 					return false;
 				}
@@ -389,7 +393,14 @@ namespace Sensor {
 
 		/* Initial battery gauge */
 		#if defined(ENABLE_BATTERY_GAUGE)
-			battery.begin();
+			#if ENABLE_BATTERY_GAUGE == BATTERY_GAUGE_DFROBOT
+				{
+					OLED_LOCK(lock);
+					battery.begin();
+				}
+			#else
+				battery.begin();
+			#endif
 		#endif
 
 		/* Initialize Dallas thermometer */
@@ -397,9 +408,11 @@ namespace Sensor {
 			dallas.begin();
 			DeviceAddress thermometer_address;
 			if (dallas.getAddress(thermometer_address, 0)) {
+				OLED_LOCK(lock);
 				Display::println("Thermometer 0 found");
 			}
 			else {
+				OLED_LOCK(lock);
 				Display::println("Thermometer 0 not found");
 				return false;
 			}
@@ -408,9 +421,11 @@ namespace Sensor {
 		/* Initialize BME280 sensor */
 		#if defined(ENABLE_BME280)
 			if (BME.begin()) {
+				OLED_LOCK(lock);
 				Display::println("BME280 sensor found");
 			}
 			else {
+				OLED_LOCK(lock);
 				Display::println("BME280 sensor not found");
 				return false;
 			}
@@ -420,9 +435,11 @@ namespace Sensor {
 		#if defined(ENABLE_LTR390)
 			if (LTR.begin()) {
 				LTR.setMode(LTR390_MODE_UVS);
+				OLED_LOCK(lock);
 				Display::println("LTR390 sensor found");
 			}
 			else {
+				OLED_LOCK(lock);
 				Display::println("LTR390 sensor not found");
 				return false;
 			}

@@ -44,6 +44,7 @@ namespace WIFI {
 	bool upload(Device const device, SerialNumber const serial, struct Data const *const data) {
 		signed int const WiFi_status = WiFi.status();
 		if (WiFi_status != WL_CONNECTED) {
+			OLED_LOCK(oled_lock);
 			Display::print("No WiFi: ");
 			Display::println(status_message(WiFi.status()));
 			return false;
@@ -81,6 +82,7 @@ namespace WIFI {
 			HTTP_client.setAuthorization(authorization_code);
 		}
 		signed int HTTP_status = HTTP_client.GET();
+		OLED_LOCK(oled_lock);
 		Display::print("HTTP status: ");
 		Display::println(HTTP_status);
 		if (not (HTTP_status >= 200 and HTTP_status < 300)) return false;

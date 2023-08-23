@@ -75,6 +75,7 @@ namespace SDCard {
 			std::lock_guard<std::mutex> lock(mutex);
 			class File data_file = SD.open(data_file_path, "a");
 			if (!data_file) {
+				OLED_LOCK(oled_lock);
 				Display::println("Cannot open data file");
 			}
 			else {
@@ -83,6 +84,7 @@ namespace SDCard {
 					data->writeln(&data_file);
 				}
 				catch (...) {
+					OLED_LOCK(oled_lock);
 					Display::println("Cannot append data file");
 				}
 				data_file.close();
@@ -90,6 +92,7 @@ namespace SDCard {
 			#if defined(LOG_DATA)
 				class File log_file = SD.open(log_file_path, "a");
 				if (!log_file) {
+					OLED_LOCK(oled_lock);
 					Display::println("Cannot open log file");
 				}
 				else {
@@ -97,6 +100,7 @@ namespace SDCard {
 						data->writeln(&log_file);
 					}
 					catch (...) {
+						OLED_LOCK(oled_lock);
 						Display::println("Cannot append log file");
 					}
 					log_file.close();
@@ -143,7 +147,10 @@ namespace SDCard {
 			std::lock_guard<std::mutex> lock(mutex);
 			if (current_position == next_position) return;
 			class File file = SD.open(DATA_FILE_PATH, "r+", true);
-			if (!file) COM::println("ERROR: SDCard::next_data failed to open data file");
+			if (!file) {
+				COM::println("ERROR: SDCard::next_data failed to open data file");
+				return;
+			}
 			file.write('1');
 			file.close();
 			current_position = next_position;
@@ -154,6 +161,7 @@ namespace SDCard {
 			pinMode(SD_MISO, INPUT_PULLUP);
 			SPI_1.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 			if (SD.begin(SD_CS, SPI_1)) {
+				OLED_LOCK(oled_lock);
 				Display::println("SD card initialized");
 				COM::println(String("SD Card type: ") + String(SD.cardType()));
 				Display::println("Cleaning up data file");
@@ -162,6 +170,7 @@ namespace SDCard {
 				OLED::display();
 				return true;
 			} else {
+				OLED_LOCK(oled_lock);
 				Display::println("SD card uninitialized");
 				OLED::display();
 				return false;

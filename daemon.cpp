@@ -86,7 +86,11 @@ namespace DAEMON {
 			if (keep_await.load()) return;
 			for (;;)
 				try {
-					Debug::println_core("DEBUG: DAEMON::Sleep::loop core=");
+					{
+						OLED_LOCK(oled_lock);
+						Debug::print("DEBUG: DAEMON::Sleep::loop core=");
+						Debug::println(xPortGetCoreID());
+					}
 					bool awake = false;
 					unsigned long int duration = MEASURE_INTERVAL;
 					{
@@ -103,10 +107,13 @@ namespace DAEMON {
 						sleep_condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(duration));
 					}
 					else {
-						Debug::print("DEBUG: sleep ");
-						Debug::print(duration);
-						Debug::println("ms");
-						Debug::flush();
+						{
+							OLED_LOCK(oled_lock);
+							Debug::print("DEBUG: DAEMON::Sleep::loop sleep ");
+							Debug::print(duration);
+							Debug::println("ms");
+							Debug::flush();
+						}
 						std::this_thread::yield();
 						LORA::sleep();
 						esp_sleep_enable_timer_wakeup(duration * 1000);
@@ -147,12 +154,17 @@ namespace DAEMON {
 		void loop(void) {
 			for (;;)
 				try {
-					Debug::println_core("DEBUG: DAEMON::Time::loop core=");
+					{
+						OLED_LOCK(oled_lock);
+						Debug::print("DEBUG: DAEMON::Time::loop core=");
+						Debug::println(xPortGetCoreID());
+					}
 					struct FullTime fulltime;
 					if (NTP::now(&fulltime)) {
 						RTC::set(&fulltime);
 						LORA::Send::TIME(&fulltime);
 
+						OLED_LOCK(oled_lock);
 						OLED::home();
 						Display::print("Synchronize: ");
 						Display::println(String(fulltime));
@@ -182,7 +194,11 @@ namespace DAEMON {
 			LORA::Send::ASKTIME();
 			for (;;)
 				try {
-					Debug::println_core("DEBUG: DAEMON::AskTime::loop core=");
+					{
+						OLED_LOCK(oled_lock);
+						Debug::print("DEBUG: DAEMON::AskTime::loop core=");
+						Debug::println(xPortGetCoreID());
+					}
 					unsigned long int now = millis();
 					unsigned long int passed = now - last_synchronization;
 					if (passed < SYNCHONIZE_INTERVAL) {
@@ -216,8 +232,10 @@ namespace DAEMON {
 
 		static void send_data(struct Data const *const data) {
 			if (enable_gateway) {
-				if (WIFI::upload(my_device_id, ++current_serial, data))
+				if (WIFI::upload(my_device_id, ++current_serial, data)) {
+					OLED_LOCK(oled_lock);
 					OLED::draw_received();
+				}
 				else {
 					COM::print("HTTP unable to send data: time=");
 					COM::println(String(data->time));
@@ -232,6 +250,7 @@ namespace DAEMON {
 					thread_delay(ACK_TIMEOUT);
 					if (acked_serial.load() == current_serial.load()) {
 						send_success = true;
+						SDCard::next_data();
 						break;
 					}
 				}
@@ -254,7 +273,11 @@ namespace DAEMON {
 			size_t const sleep = Sleep::register_thread();
 			for (;;)
 				try {
-					Debug::println_core("DEBUG: DAEMON::Push:loop core=");
+					{
+						OLED_LOCK(oled_lock);
+						Debug::print("DEBUG: DAEMON::Push::loop core=");
+						Debug::println(xPortGetCoreID());
+					}
 					struct Data data;
 					if (SDCard::read_data(&data)) {
 						esp_pthread_set_cfg(&thread_core_opposite);
@@ -284,7 +307,11 @@ namespace DAEMON {
 			for (;;)
 				try {
 					thread_delay(CLEANLOG_INTERVAL);
-					Debug::println_core("DEBUG: DAEMON::CleanLog:loop core=");
+					{
+						OLED_LOCK(oled_lock);
+						Debug::print("DEBUG: DAEMON::CleanLog::loop core=");
+						Debug::println(xPortGetCoreID());
+					}
 					SDCard::clean_up();
 				}
 				catch (...) {
@@ -295,6 +322,7 @@ namespace DAEMON {
 
 	namespace Measure {
 		static void print(struct Data const *const data) {
+			OLED_LOCK(lock);
 			OLED::home();
 			Display::print("Device ");
 			Display::println(my_device_id);
@@ -307,7 +335,11 @@ namespace DAEMON {
 			size_t const sleep = Sleep::register_thread();
 			for (;;)
 				try {
-					Debug::println_core("DEBUG: DAEMON::Measure::loop core=");
+					{
+						OLED_LOCK(lock);
+						Debug::print("DEBUG: DAEMON::Measure::loop core=");
+						Debug::println(xPortGetCoreID());
+					}
 					struct Data data;
 					if (Sensor::measure(&data)) {
 						print(&data);
@@ -331,18 +363,26 @@ namespace DAEMON {
 				for (;;)
 					try {
 						thread_delay(12345);
-						Debug::println_core("DEBUG: DAEMON::Headless::loop core=");
+						{
+							OLED_LOCK(lock);
+							Debug::print("DEBUG: DAEMON::Headless::loop core=");
+							Debug::println(xPortGetCoreID());
+						}
 						if (digitalRead(ENABLE_OLED_SWITCH) == LOW) {
-							if (!switched_off)
+							if (!switched_off) {
+								OLED_LOCK(lock);
 								OLED::turn_off();
+							}
 						}
 						else {
-							if (switched_off)
+							if (switched_off) {
+								OLED_LOCK(lock);
 								OLED::turn_on();
+							}
 						}
 					}
 					catch (...) {
-						COM::println("ERROR: DAEMON::Display::loop execption thrown");
+						COM::println("ERROR: DAEMON::Headless::loop execption thrown");
 					}
 			#endif
 		}
@@ -351,7 +391,7 @@ namespace DAEMON {
 	void run(void) {
 		thread_core_unpin = esp_pthread_get_default_config();
 		thread_core_unpin.stack_size = 4096;
-		thread_core_unpin.inherit_cfg = true;
+		//	thread_core_unpin.inherit_cfg = true;
 		thread_core_default = thread_core_unpin;
 		thread_core_default.pin_to_core = xPortGetCoreID();
 		thread_core_opposite = thread_core_unpin;
@@ -373,9 +413,9 @@ namespace DAEMON {
 
 		if (enable_measure) {
 			std::thread(Push::loop).detach();
-			esp_pthread_set_cfg(&thread_core_default);
+			//	esp_pthread_set_cfg(&thread_core_default);
 			std::thread(Measure::loop).detach();
-			esp_pthread_set_cfg(&thread_core_opposite);
+			//	esp_pthread_set_cfg(&thread_core_opposite);
 			#if defined(ENABLE_SDCARD)
 				std::thread(CleanLog::loop).detach();
 			#endif

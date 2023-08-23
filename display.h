@@ -3,6 +3,8 @@
 
 /* ************************************************************************** */
 
+#include <mutex>
+
 #include <Adafruit_SSD1306.h>
 
 #define CLOCK_PCF85063TP 1
@@ -76,6 +78,7 @@ namespace COM {
 
 namespace OLED {
 	extern Adafruit_SSD1306 SSD1306;
+	extern std::mutex mutex;
 
 	extern void turn_on(void);
 	extern void turn_off(void);
@@ -123,6 +126,7 @@ namespace OLED {
 		}
 	#else
 		inline static void initialize(void) {
+			std::lock_guard<std::mutex> lock(mutex);
 			SSD1306.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR);
 			turn_off();
 		}
@@ -136,6 +140,12 @@ namespace OLED {
 		inline static void display(void) {}
 	#endif
 }
+
+#if defined(ENABLE_OLED_OUTPUT)
+	#define OLED_LOCK(VARIABLE) std::lock_guard<std::mutex> VARIABLE(OLED::mutex)
+#else
+	#define OLED_LOCK(VARIABLE)
+#endif
 
 namespace Display {
 	template <typename TYPE>
@@ -190,12 +200,6 @@ namespace Debug {
 			Serial.flush();
 		#endif
 	}
-
-	#if defined(NDEBUG)
-		inline static void println_core(char const *const message) {}
-	#else
-		extern void println_core(char const *message);
-	#endif
 }
 
 /* ************************************************************************** */
