@@ -78,7 +78,6 @@ namespace COM {
 
 namespace OLED {
 	extern Adafruit_SSD1306 SSD1306;
-	extern std::mutex mutex;
 
 	extern void turn_on(void);
 	extern void turn_off(void);
@@ -142,7 +141,7 @@ namespace OLED {
 }
 
 #if defined(ENABLE_OLED_OUTPUT)
-	#define OLED_LOCK(VARIABLE) std::lock_guard<std::mutex> VARIABLE(OLED::mutex)
+	#define OLED_LOCK(VARIABLE) DEVICE_LOCK(VARIABLE)
 #else
 	#define OLED_LOCK(VARIABLE)
 #endif

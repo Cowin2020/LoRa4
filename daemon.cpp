@@ -271,7 +271,6 @@ namespace DAEMON {
 						esp_pthread_set_cfg(&esp_pthread_cfg);
 						std::thread(send_data, &data).detach();
 					}
-
 					std::unique_lock<std::mutex> lock(mutex);
 					if (send_success) {
 						Sleep::time(sleep, SEND_INTERVAL);
@@ -345,16 +344,12 @@ namespace DAEMON {
 						thread_delay(12345);
 						Debug::print_thread("DEBUG: DAEMON::Headless::loop");
 						if (digitalRead(ENABLE_OLED_SWITCH) == LOW) {
-							if (!switched_off) {
-								OLED_LOCK(lock);
+							if (!switched_off)
 								OLED::turn_off();
-							}
 						}
 						else {
-							if (switched_off) {
-								OLED_LOCK(lock);
+							if (switched_off)
 								OLED::turn_on();
-							}
 						}
 					}
 					catch (...) {
@@ -370,8 +365,12 @@ namespace DAEMON {
 		esp_pthread_cfg.inherit_cfg = true;
 
 		#if defined(ENABLE_SLEEP)
-			esp_pthread_set_cfg(&esp_pthread_cfg);
-			std::thread(Sleep::loop).detach();
+			{
+				esp_pthread_cfg_t sleep_cfg = esp_pthread_cfg;
+				sleep_cfg.stack_size = 2048;
+				esp_pthread_set_cfg(&esp_pthread_cfg);
+				std::thread(Sleep::loop).detach();
+			}
 		#endif
 
 		if (enable_gateway) {

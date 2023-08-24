@@ -1,6 +1,8 @@
 #ifndef INCLUDE_DEVICE_H
 #define INCLUDE_DEVICE_H
 
+#include <mutex>
+
 #include <NTPClient.h>
 #include <WiFi.h>
 
@@ -10,6 +12,10 @@
 /* ************************************************************************** */
 
 extern unsigned long const CPU_frequency;
+
+extern std::mutex device_mutex;
+
+#define DEVICE_LOCK(VARIABLE) std::lock_guard<std::mutex> VARIALBE(device_mutex);
 
 namespace RTC {
 	extern bool initialize(void);

@@ -4,7 +4,6 @@ Computer for development
 Arduino IDE
 -----------
 
-Versions 1.X.X are tested.
 https://www.arduino.cc/en/software
 
 USB-Enhanced-SERIAL CH9102 COM port driver

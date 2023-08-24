@@ -19,7 +19,7 @@ unsigned long const CPU_frequency =
 	#endif
 	;
 
-std::mutex wire2_mutex;
+std::mutex device_mutex;
 
 #if !defined(ENABLE_CLOCK)
 	#include <RTClib.h>
@@ -116,13 +116,13 @@ std::mutex wire2_mutex;
 
 		bool initialize(void) {
 			if (!external_clock.begin()) {
-				OLED_LOCK(lock);
+				OLED_LOCK(oled_lock);
 				Display::println("Clock not found");
 				return false;
 			}
 			#if ENABLE_CLOCK == CLOCK_DS1307
 				if (!external_clock.isrunning()) {
-					OLED_LOCK(lock);
+					DEVICE_LOCK(device_lock);
 					Display::println("DS1307 not running");
 					return false;
 				}
@@ -383,10 +383,8 @@ void Data::println(void) const {
 namespace Sensor {
 	bool initialize(void) {
 		if (!RTC::initialize()) return false;
-
 		if (!enable_measure) return true;
-
-		OLED_LOCK(oled_lock);
+		DEVICE_LOCK(device_lock);
 
 		/* Initial battery gauge */
 		#if defined(ENABLE_BATTERY_GAUGE)
@@ -433,7 +431,7 @@ namespace Sensor {
 	}
 
 	bool measure(struct Data *const data) {
-		OLED_LOCK(oled_lock);
+		DEVICE_LOCK(device_lock);
 		if (!RTC::now(&data->time))
 			return false;
 		#if defined(ENABLE_BATTERY_GAUGE)

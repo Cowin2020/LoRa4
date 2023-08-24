@@ -15,8 +15,6 @@
 /* ************************************************************************** */
 
 namespace SDCard {
-	static std::mutex mutex;
-
 	#if defined(ENABLE_SDCARD)
 		static char const data_file_path[] = DATA_FILE_PATH;
 		static char const cleanup_file_path[] = CLEANUP_FILE_PATH;
@@ -29,7 +27,7 @@ namespace SDCard {
 
 		void clean_up(void) {
 			if (!enable_measure) return;
-			std::lock_guard<std::mutex> lock(mutex);
+			DEVICE_LOCK(device_lock);
 			if (SD.exists(cleanup_file_path))
 				SD.remove(data_file_path);
 			else if (!SD.rename(data_file_path, cleanup_file_path))
@@ -72,19 +70,16 @@ namespace SDCard {
 
 		void add_data(struct Data const *const data) {
 			if (!enable_measure) return;
-			std::lock_guard<std::mutex> lock(mutex);
+			DEVICE_LOCK(device_lock);
 			class File data_file = SD.open(data_file_path, "a");
-			if (!data_file) {
-				OLED_LOCK(oled_lock);
+			if (!data_file)
 				Display::println("Cannot open data file");
-			}
 			else {
 				try {
 					data_file.print("0,");
 					data->writeln(&data_file);
 				}
 				catch (...) {
-					OLED_LOCK(oled_lock);
 					Display::println("Cannot append data file");
 				}
 				data_file.close();
@@ -109,7 +104,7 @@ namespace SDCard {
 		}
 		bool read_data(struct Data *const data) {
 			if (!enable_measure) return false;
-			std::lock_guard<std::mutex> lock(mutex);
+			DEVICE_LOCK(device_lock);
 			class File file = SD.open(DATA_FILE_PATH, "r+", true);
 			if (!file) {
 				COM::println("ERROR: SDCard::read_data failed to open data file");
@@ -144,8 +139,8 @@ namespace SDCard {
 
 		void next_data(void) {
 			if (!enable_measure) return;
-			std::lock_guard<std::mutex> lock(mutex);
 			if (current_position == next_position) return;
+			DEVICE_LOCK(device_lock);
 			class File file = SD.open(DATA_FILE_PATH, "r+", true);
 			if (!file) {
 				COM::println("ERROR: SDCard::next_data failed to open data file");
@@ -161,7 +156,6 @@ namespace SDCard {
 			pinMode(SD_MISO, INPUT_PULLUP);
 			SPI_1.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 			if (SD.begin(SD_CS, SPI_1)) {
-				OLED_LOCK(oled_lock);
 				Display::println("SD card initialized");
 				COM::println(String("SD Card type: ") + String(SD.cardType()));
 				Display::println("Cleaning up data file");
@@ -170,13 +164,13 @@ namespace SDCard {
 				OLED::display();
 				return true;
 			} else {
-				OLED_LOCK(oled_lock);
 				Display::println("SD card uninitialized");
 				OLED::display();
 				return false;
 			}
 		}
 	#else
+		static std::mutex mutex;
 		static bool filled = false;
 		static struct Data last_data;
 

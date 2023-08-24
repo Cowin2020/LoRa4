@@ -367,11 +367,11 @@ namespace LORA {
 			uint8_t const *const tag = ciphertext + content_size;
 			if (!((char *)packet.data() + sizeof (PacketType) + sizeof (Device) == (char *)nonce)) {
 				OLED_LOCK(oled_lock);
-				Debug::println("DEBUG: incorrect none position");
+				Debug::println("DEBUG: LORA::Receive::decode incorrect none position");
 			}
 			if (!((char *)packet.data() + packet.size() == (char *)tag + CIPHER_TAG_SIZE)) {
 				OLED_LOCK(oled_lock);
-				Debug::println("DEBUG: incorrect content size");
+				Debug::println("DEBUG: LORA::Receive::decode incorrect content size");
 			}
 
 			switch (*packet_type) {
