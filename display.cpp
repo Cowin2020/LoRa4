@@ -73,15 +73,17 @@ namespace OLED {
 	#endif
 }
 
-namespace Debug {
-	void print_thread(char const *const message) {
-		OLED_LOCK(oled_lock);
-		Debug::print(message);
-		Debug::print(" core=");
-		Debug::print(xPortGetCoreID());
-		Debug::print(" stack=");
-		Debug::println(uxTaskGetStackHighWaterMark(nullptr));
-	}
+#if !defined(NDEBUG)
+	namespace Debug {
+		void print_thread(char const *const message) {
+			OLED_LOCK(oled_lock);
+			Debug::print(message);
+			Debug::print(" core=");
+			Debug::print(xPortGetCoreID());
+			Debug::print(" stack=");
+			Debug::println(uxTaskGetStackHighWaterMark(nullptr));
+		}
 }
+#endif
 
 /* ************************************************************************** */

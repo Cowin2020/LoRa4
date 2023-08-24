@@ -140,12 +140,6 @@ namespace OLED {
 	#endif
 }
 
-#if defined(ENABLE_OLED_OUTPUT)
-	#define OLED_LOCK(VARIABLE) DEVICE_LOCK(VARIABLE)
-#else
-	#define OLED_LOCK(VARIABLE)
-#endif
-
 namespace Display {
 	template <typename TYPE>
 	inline void print(TYPE x) {
@@ -194,7 +188,7 @@ namespace Debug {
 	}
 
 	#if defined(NDEBUG)
-		inline static void print_thread(void) {}
+		inline static void print_thread(char const *const message) {}
 	#else
 		extern void print_thread(char const *message);
 	#endif

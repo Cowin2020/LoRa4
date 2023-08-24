@@ -17,6 +17,18 @@ extern std::mutex device_mutex;
 
 #define DEVICE_LOCK(VARIABLE) std::lock_guard<std::mutex> VARIALBE(device_mutex);
 
+#if defined(ENABLE_OLED_OUTPUT)
+	#define OLED_LOCK(VARIABLE) DEVICE_LOCK(VARIABLE)
+#else
+	#define OLED_LOCK(VARIABLE)
+#endif
+
+#if defined(NDEBUG)
+	#define DEBUG_LOCK(VARIABLE)
+#else
+	#define DEBUG_LOCK(VARIABLE) OLED_LOCK(VARIABLE)
+#endif
+
 namespace RTC {
 	extern bool initialize(void);
 	extern void set(struct FullTime const* fulltime);

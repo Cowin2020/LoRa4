@@ -196,6 +196,7 @@ namespace NTP {
 		}
 	}
 }
+
 #if defined(ENABLE_BATTERY_GAUGE)
 	#if ENABLE_BATTERY_GAUGE == BATTERY_GAUGE_DFROBOT
 		#include <DFRobot_MAX17043.h>

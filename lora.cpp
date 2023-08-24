@@ -94,7 +94,7 @@ namespace LORA {
 			size_t const size)
 		{
 			{
-				OLED_LOCK(oled_lock);
+				DEBUG_LOCK(debug_lock);
 				Debug::print("DEBUG: LORA::Send::packet ");
 				Debug::dump(message, payload, size);
 			}
@@ -192,7 +192,7 @@ namespace LORA {
 					return;
 				}
 				{
-					OLED_LOCK(oled_lock);
+					DEBUG_LOCK(debug_lock);
 					Debug::print("DEBUG: LORA::Receive::ASKTIME ");
 					Debug::println(sender);
 				}
@@ -325,7 +325,7 @@ namespace LORA {
 
 					SerialNumber const serial = *reinterpret_cast<Device const *>(content.data() + 2 * sizeof (Device));
 					{
-						OLED_LOCK(oled_lock);
+						DEBUG_LOCK(debug_lock);
 						Debug::print("DEBUG: LORA::Receive::ACK serial=");
 						Debug::println(serial);
 					}
@@ -336,7 +336,7 @@ namespace LORA {
 					size_t const Device2 = 2 * sizeof (Device);
 					Device const router1 = *reinterpret_cast<Device const *>(content.data() + Device2);
 					{
-						OLED_LOCK(oled_lock);
+						DEBUG_LOCK(debug_lock);
 						Debug::print("DEBUG: LORA::Receive::ACK router=");
 						Debug::print(router1);
 						Debug::print(" terminal=");
@@ -353,7 +353,7 @@ namespace LORA {
 		static void decode(std::vector<uint8_t> packet) {
 			static size_t const overhead_size = sizeof (PacketType) + sizeof (Device) + CIPHER_IV_LENGTH + CIPHER_TAG_SIZE;
 			if (packet.size() < overhead_size) {
-				OLED_LOCK(oled_lock);
+				DEBUG_LOCK(debug_lock);
 				Debug::print("DEBUG: LORA::Receive::decode packet too short ");
 				Debug::println(packet.size());
 				return;
@@ -366,11 +366,11 @@ namespace LORA {
 			uint8_t const *const ciphertext = nonce + CIPHER_IV_LENGTH;
 			uint8_t const *const tag = ciphertext + content_size;
 			if (!((char *)packet.data() + sizeof (PacketType) + sizeof (Device) == (char *)nonce)) {
-				OLED_LOCK(oled_lock);
+				DEBUG_LOCK(debug_lock);
 				Debug::println("DEBUG: LORA::Receive::decode incorrect none position");
 			}
 			if (!((char *)packet.data() + packet.size() == (char *)tag + CIPHER_TAG_SIZE)) {
-				OLED_LOCK(oled_lock);
+				DEBUG_LOCK(debug_lock);
 				Debug::println("DEBUG: LORA::Receive::decode incorrect content size");
 			}
 
@@ -381,15 +381,15 @@ namespace LORA {
 				case PACKET_ACK:
 					break;
 				default:
-					OLED_LOCK(oled_lock);
+					DEBUG_LOCK(debug_lock);
 					Debug::print("DEBUG: LORA::Receive::decode unknown packet type ");
 					Debug::println(*packet_type);
 					return;
 			}
 
 			if (!(*device >= 0 && * device < number_of_device)) {
-				OLED_LOCK(oled_lock);
-				Debug::print("DEBUG:: LORA::Receive::decode unknown device ");
+				DEBUG_LOCK(debug_lock);
+				Debug::print("DEBUG: LORA::Receive::decode unknown device ");
 				Debug::println(*device);
 				return;
 			}
@@ -397,63 +397,63 @@ namespace LORA {
 			AuthCipher cipher;
 			std::vector<uint8_t> cleantext(content_size);
 			if (!cipher.setKey((uint8_t const *)secret_key, sizeof secret_key)) {
-				COM::print("LoRa receive ");
+				COM::print("ERROR: LORA::Receive::decode ");
 				COM::print(*packet_type);
-				COM::println(": fail to set cipher key");
+				COM::println(" fail to set cipher key");
 				OLED::set_message(String("LoRa ") + *packet_type + ": fail to set cipher key\n");
 				return;
 			}
 			if (!cipher.setIV(nonce, CIPHER_IV_LENGTH)) {
-				COM::print("LoRa receive ");
+				COM::print("ERROR: LORA::Receive::decode ");
 				COM::print(*packet_type);
-				COM::println(": fail to set cipher nonce");
+				COM::println(" fail to set cipher nonce");
 				OLED::set_message(String("LoRa ") + *packet_type + ": fail to set cipher nonce\n");
 				return;
 			}
 			cipher.decrypt(cleantext.data(), ciphertext, content_size);
 			if (!cipher.checkTag(tag, sizeof tag)) {
-				COM::print("LoRa receive ");
+				COM::print("NOTE: LORA::Receive::decode ");
 				COM::print(*packet_type);
-				COM::println(": invalid cipher tag");
+				COM::println(" invalid cipher tag");
 				OLED::set_message(String("LoRa ") + *packet_type + ": invalid cipher tag\n");
 				return;
 			}
 			{
-				OLED_LOCK(oled_lock);
+				DEBUG_LOCK(debug_lock);
 				Debug::dump("DEBUG: LORA::Receive::decode", cleantext.data(), cleantext.size());
 			}
 
 			switch (*packet_type) {
 			case PACKET_TIME:
 				{
-					OLED_LOCK(oled_lock);
+					DEBUG_LOCK(debug_lock);
 					Debug::println("DEBUG: LORA::Receive::packet TIME");
 				}
 				TIME(*device, cleantext);
 				break;
 			case PACKET_ASKTIME:
 				{
-					OLED_LOCK(oled_lock);
+					DEBUG_LOCK(debug_lock);
 					Debug::println("DEBUG: LORA::Receive::packet ASKTIME");
 				}
 				ASKTIME(*device, cleantext);
 				break;
 			case PACKET_SEND:
 				{
-					OLED_LOCK(oled_lock);
+					DEBUG_LOCK(debug_lock);
 					Debug::println("DEBUG: LORA::Receive::packet SEND");
 				}
 				SEND(*device, cleantext);
 				break;
 			case PACKET_ACK:
 				{
-					OLED_LOCK(oled_lock);
+					DEBUG_LOCK(debug_lock);
 					Debug::println("DEBUG: LORA::Receive::packet ACK");
 				}
 				ACK(*device, cleantext);
 				break;
 			default:
-				COM::print("LoRa: incorrect packet type: ");
+				COM::print("NOTE: incorrect LoRa packet type: ");
 				COM::println(*packet_type);
 			}
 		}
@@ -463,19 +463,19 @@ namespace LORA {
 			signed int const parse_size = LoRa.parsePacket();
 			if (parse_size < 1) return;
 			{
-				OLED_LOCK(oled_lock);
+				DEBUG_LOCK(debug_lock);
 				Debug::print("DEBUG: LORA::Receive::packet packet_size ");
 				Debug::println(parse_size);
 			}
 			size_t const packet_size = static_cast<size_t>(LoRa.available());
 			if (packet_size != static_cast<size_t>(parse_size)) {
-				OLED_LOCK(oled_lock);
+				DEBUG_LOCK(debug_lock);
 				Display::println("ERROR: LORA::Receive::packet LoRa.parsePacker != LoRa.available");
 				return;
 			}
 			std::vector<uint8_t> packet(packet_size);
 			if (LoRa.readBytes(packet.data(), packet.size()) != packet.size()) {
-				OLED_LOCK(oled_lock);
+				DEBUG_LOCK(debug_lock);
 				Display::println("ERROR: LORA::Receive::packet unable read data from LoRa");
 				return;
 			}

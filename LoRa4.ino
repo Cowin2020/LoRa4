@@ -19,19 +19,18 @@ static bool setup_success;
 
 void setup(void) {
 	setup_success = false;
-
 	LED::initialize();
 	COM::initialize();
 	OLED::initialize();
 	setCpuFrequencyMhz(CPU_frequency);
-	if (!SDCard::initialize()) goto error;
-	if (!RTC::initialize()) goto error;
-	if (!Sensor::initialize()) goto error;
+	if (!SDCard::initialize()) goto end;
+	if (!RTC::initialize()) goto end;
+	if (!Sensor::initialize()) goto end;
 	WIFI::initialize();
-	if (!LORA::initialize()) goto error;
+	if (!LORA::initialize()) goto end;
 	DAEMON::run();
 	setup_success = true;
-error:
+end:
 	OLED::display();
 }
 

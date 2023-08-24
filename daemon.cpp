@@ -102,7 +102,7 @@ namespace DAEMON {
 					}
 					else {
 						{
-							OLED_LOCK(oled_lock);
+							DEBUG_LOCK(debug_lock);
 							Debug::print("DEBUG: DAEMON::Sleep::loop sleep ");
 							Debug::print(duration);
 							Debug::println("ms");
@@ -368,7 +368,7 @@ namespace DAEMON {
 			{
 				esp_pthread_cfg_t sleep_cfg = esp_pthread_cfg;
 				sleep_cfg.stack_size = 2048;
-				esp_pthread_set_cfg(&esp_pthread_cfg);
+				esp_pthread_set_cfg(&sleep_cfg);
 				std::thread(Sleep::loop).detach();
 			}
 		#endif
