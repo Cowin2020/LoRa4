@@ -72,7 +72,7 @@ namespace DAEMON {
 				timer.stop = now + milliseconds;
 			}
 			sleep_condition.notify_one();
-			std::this_thread::yield();
+			vTaskDelay(1);
 		}
 
 		void woke(size_t const timer_index) {
@@ -108,11 +108,11 @@ namespace DAEMON {
 							Debug::println("ms");
 							Debug::flush();
 						}
-						std::this_thread::yield();
+						vTaskDelay(1);
 						LORA::sleep();
 						esp_sleep_enable_timer_wakeup(duration * 1000);
 						esp_light_sleep_start();
-						std::this_thread::yield();
+						vTaskDelay(1);
 					}
 				}
 				catch (...) {
@@ -145,7 +145,7 @@ namespace DAEMON {
 
 		void run(void) {
 			condition.notify_one();
-			std::this_thread::yield();
+			vTaskDelay(1);
 		}
 
 		[[noreturn]]
@@ -253,7 +253,7 @@ namespace DAEMON {
 		void data(struct Data const *const data) {
 			SDCard::add_data(data);
 			condition.notify_one();
-			std::this_thread::yield();
+			vTaskDelay(1);
 		}
 
 		void ack(SerialNumber const serial) {
