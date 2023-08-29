@@ -121,20 +121,16 @@ namespace DAEMON {
 		}
 	}
 
-	namespace Internet {
+	namespace LoRa {
 		[[noreturn]]
 		void loop(void) {
 			for (;;)
 				try {
-					WIFI::loop();
-					#if defined(REBOOT_TIMEOUT)
-						unsigned long int const now = millis();
-						if (now - LORA::last_time > REBOOT_TIMEOUT) esp_restart();
-					#endif
-					thread_delay(INTERNET_INTERVAL);
+					LORA::Receive::packet();
+					vTaskDelay(1);
 				}
 				catch (...) {
-					COM::println("ERROR: DAEMON::Internet::loop exception thrown");
+					COM::println("ERROR: DAEMON::LoRa::loop exception thrown");
 				}
 		}
 	}
@@ -165,8 +161,9 @@ namespace DAEMON {
 						OLED::display();
 					}
 
+					vTaskDelay(1);
 					std::unique_lock<std::mutex> lock(mutex);
-					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SYNCHONIZE_INTERVAL));
+					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SYNCHONIZE_INTERVAL - 1));
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Time::loop exception thrown");
@@ -263,6 +260,7 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
+			thread_delay(500);
 			for (;;)
 				try {
 					Debug::print_thread("DEBUG: DAEMON::Push::loop");
@@ -316,6 +314,7 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
+			thread_delay(300);
 			for (;;)
 				try {
 					Debug::print_thread("DEBUG: DAEMON::Measure::loop");
@@ -334,48 +333,17 @@ namespace DAEMON {
 		}
 	}
 
-	namespace Headless {
-		void loop(void) {
-			#if defined(ENABLE_OLED_SWITCH)
-				static bool switched_off = false;
-				pinMode(ENABLE_OLED_SWITCH, INPUT_PULLDOWN);
-				for (;;)
-					try {
-						thread_delay(12345);
-						Debug::print_thread("DEBUG: DAEMON::Headless::loop");
-						if (digitalRead(ENABLE_OLED_SWITCH) == LOW) {
-							if (!switched_off)
-								OLED::turn_off();
-						}
-						else {
-							if (switched_off)
-								OLED::turn_on();
-						}
-					}
-					catch (...) {
-						COM::println("ERROR: DAEMON::Headless::loop execption thrown");
-					}
-			#endif
-		}
-	}
-
 	void run(void) {
 		esp_pthread_cfg = esp_pthread_get_default_config();
 		esp_pthread_cfg.stack_size = 4096;
 		esp_pthread_cfg.inherit_cfg = true;
 
-		#if defined(ENABLE_SLEEP)
-			{
-				esp_pthread_cfg_t sleep_cfg = esp_pthread_cfg;
-				sleep_cfg.stack_size = 2048;
-				esp_pthread_set_cfg(&sleep_cfg);
-				std::thread(Sleep::loop).detach();
-			}
-		#endif
+		esp_pthread_set_cfg(&esp_pthread_cfg);
+		std::thread(LoRa::loop).detach();
 
 		if (enable_gateway) {
-			esp_pthread_set_cfg(&esp_pthread_cfg);
-			std::thread(Internet::loop).detach();
+			// esp_pthread_set_cfg(&esp_pthread_cfg);
+			// std::thread(Internet::loop).detach();
 			esp_pthread_set_cfg(&esp_pthread_cfg);
 			std::thread(Time::loop).detach();
 		}
@@ -395,9 +363,13 @@ namespace DAEMON {
 			#endif
 		}
 
-		#if defined(ENABLE_OLED_SWITCH)
-			esp_pthread_set_cfg(&esp_pthread_cfg);
-			std::thread(Headless::loop).detach();
+		#if defined(ENABLE_SLEEP)
+			{
+				esp_pthread_cfg_t sleep_cfg = esp_pthread_cfg;
+				sleep_cfg.stack_size = 2048;
+				esp_pthread_set_cfg(&sleep_cfg);
+				std::thread(Sleep::loop).detach();
+			}
 		#endif
 	}
 }

@@ -39,7 +39,32 @@ void loop(void) {
 		LED::flash();
 		return;
 	}
-	LORA::Receive::packet();
-	RNG.loop();
-	yield();
+	try {
+		WIFI::loop();
+		#if defined(ENABLE_OLED_SWITCH)
+			static bool switched_off = false;
+			pinMode(ENABLE_OLED_SWITCH, INPUT_PULLDOWN);
+			if (digitalRead(ENABLE_OLED_SWITCH) == LOW) {
+				if (!switched_off) {
+					OLED::turn_off();
+					switched_off = true;
+				}
+			}
+			else {
+				if (switched_off) {
+					OLED::turn_on();
+					switched_off = false;
+				}
+			}
+		#endif
+		#if defined(REBOOT_TIMEOUT)
+			if (millis() - LORA::last_time > REBOOT_TIMEOUT)
+				esp_restart();
+		#endif
+		RNG.loop();
+		vTaskDelay(pdMS_TO_TICKS(IDLE_INTERVAL));  //	delay(IDLE_INTERVAL);
+	}
+	catch (...) {
+		COM::println("ERROR: loop exception thrown");
+	}
 }

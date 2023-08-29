@@ -20,7 +20,7 @@ namespace DAEMON {
 		extern void woke(size_t const timer_index);
 		extern void loop(void);
 	}
-	namespace Internet {
+	namespace LoRa {
 		[[noreturn]] extern void loop(void);
 	}
 	namespace Time {
@@ -37,9 +37,6 @@ namespace DAEMON {
 	}
 	namespace Measure {
 		[[noreturn]] extern void loop(void);
-	}
-	namespace Headless {
-		extern void loop(void);
 	}
 	extern void run(void);
 }
