@@ -159,6 +159,7 @@ namespace SDCard {
 				Display::println("SD card initialized");
 				COM::println(String("SD Card type: ") + String(SD.cardType()));
 				Display::println("Cleaning up data file");
+				OLED::display();
 				clean_up();
 				Display::println("Data file cleaned");
 				OLED::display();
