@@ -54,6 +54,6 @@
 /* Power saving */
 #define ENABLE_SLEEP
 /* CPU_FREQUENCY >= 20MHz for LoRa, and >= 80MHz for WiFi */
-//	#define CPU_FREQUENCY 20 /* MHz */
+#define CPU_FREQUENCY 20 /* MHz */
 
 #endif // INCLUDE_CONFIG_DEVICE_H
