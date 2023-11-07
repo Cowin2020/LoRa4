@@ -83,8 +83,6 @@ namespace OLED {
 	extern void turn_off(void);
 
 	#if defined(ENABLE_OLED_OUTPUT)
-		extern class String message;
-
 		extern void initialize(void);
 
 		inline static void home(void) {
@@ -105,14 +103,6 @@ namespace OLED {
 		template <typename TYPE>
 		inline void println(TYPE const x, int const option) {
 			SSD1306.println(x, option);
-		}
-
-		inline static void set_message(class String const &string) {
-			message = string;
-		}
-
-		inline static void print_message(void) {
-			print(message);
 		}
 
 		inline static void draw_received(void) {

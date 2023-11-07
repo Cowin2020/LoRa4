@@ -14,7 +14,7 @@ namespace DAEMON {
 			unsigned long int start;
 			unsigned long int stop;
 		};
-		extern std::atomic<bool> keep_await;
+		extern std::atomic<bool> keep_awake;
 		extern size_t register_thread(void);
 		extern void time(size_t timer_index, unsigned long int milliseconds);
 		extern void woke(size_t const timer_index);

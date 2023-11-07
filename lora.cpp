@@ -97,6 +97,7 @@ namespace LORA {
 				DEBUG_LOCK(debug_lock);
 				Debug::print("DEBUG: LORA::Send::packet ");
 				Debug::dump(message, payload, size);
+				Debug::flush();
 			}
 
 			AuthCipher cipher;
@@ -104,9 +105,8 @@ namespace LORA {
 				COM::print("LoRa ");
 				COM::print(message);
 				COM::println(": unable to set key");
-				#if defined(ENABLE_OLED_OUTPUT)
-					OLED::set_message("Unable to set key\n");
-				#endif
+				OLED_LOCK(oled_lock);
+				OLED::println("Unable to set key");
 				return false;
 			}
 
@@ -116,9 +116,8 @@ namespace LORA {
 				COM::print("LoRa ");
 				COM::print(message);
 				COM::println(": unable to set nonce");
-				#if defined(ENABLE_OLED_OUTPUT)
-					OLED::set_message("Unable to set nonce\n");
-				#endif
+				OLED_LOCK(oled_lock);
+				OLED::println("Unable to set nonce");
 				return false;
 			}
 
@@ -147,6 +146,13 @@ namespace LORA {
 		}
 
 		void SEND(Device const receiver, SerialNumber const serial, Data const *const data) {
+			{
+				DEBUG_LOCK(debug_lock);
+				Debug::print("DEBUG: LORA::Send::SEND ");
+				#if !defined(NDEBUG) && defined(ENABLE_COM_OUTPUT)
+					data->writeln(&Serial);
+				#endif
+			}
 			char content[static_cast<size_t>(2 * sizeof my_device_id + sizeof serial + sizeof *data)];
 			std::memcpy(content, &my_device_id, sizeof my_device_id);
 			std::memcpy(content + sizeof my_device_id, &my_device_id, sizeof my_device_id);
@@ -387,7 +393,7 @@ namespace LORA {
 					return;
 			}
 
-			if (!(*device >= 0 && * device < number_of_device)) {
+			if (!(*device >= 0 && *device < number_of_device)) {
 				DEBUG_LOCK(debug_lock);
 				Debug::print("DEBUG: LORA::Receive::decode unknown device ");
 				Debug::println(*device);
@@ -397,25 +403,26 @@ namespace LORA {
 			AuthCipher cipher;
 			std::vector<uint8_t> cleantext(content_size);
 			if (!cipher.setKey((uint8_t const *)secret_key, sizeof secret_key)) {
+				DEBUG_LOCK(debug_lock);
 				COM::print("ERROR: LORA::Receive::decode ");
 				COM::print(*packet_type);
 				COM::println(" fail to set cipher key");
-				OLED::set_message(String("LoRa ") + *packet_type + ": fail to set cipher key\n");
+				OLED::println(String("LoRa ") + *packet_type + ": fail to set cipher key");
 				return;
 			}
 			if (!cipher.setIV(nonce, CIPHER_IV_LENGTH)) {
+				DEBUG_LOCK(debug_lock);
 				COM::print("ERROR: LORA::Receive::decode ");
 				COM::print(*packet_type);
 				COM::println(" fail to set cipher nonce");
-				OLED::set_message(String("LoRa ") + *packet_type + ": fail to set cipher nonce\n");
+				OLED::println(String("LoRa ") + *packet_type + ": fail to set cipher nonce");
 				return;
 			}
 			cipher.decrypt(cleantext.data(), ciphertext, content_size);
 			if (!cipher.checkTag(tag, sizeof tag)) {
-				COM::print("NOTE: LORA::Receive::decode ");
+				COM::print("DEBUG: LORA::Receive::decode ");
 				COM::print(*packet_type);
 				COM::println(" invalid cipher tag");
-				OLED::set_message(String("LoRa ") + *packet_type + ": invalid cipher tag\n");
 				return;
 			}
 			{

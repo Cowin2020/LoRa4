@@ -31,7 +31,7 @@ static bool const enable_sleep =
 	;
 
 template <typename TYPE>
-static uint8_t rand_int(void) {
+static TYPE rand_int(void) {
 	TYPE x;
 	RNG.rand((uint8_t *)&x, sizeof x);
 	return x;
@@ -48,13 +48,20 @@ namespace DAEMON {
 		vTaskDelay(ticks>0 ? ticks : 1);
 	}
 
+	static void yield(void) {
+		vTaskDelay(1);
+		//	taskYIELD();
+		//	sched_yield();
+		//	std::this_thread::yield();
+	}
+
 	namespace Sleep {
 		static std::mutex sleep_mutex;
 		static std::condition_variable sleep_condition;
 		static std::mutex timer_mutex;
 		static std::vector<struct Timer> timers;
 
-		std::atomic<bool> keep_await(false);
+		std::atomic<bool> keep_awake(false);
 
 		size_t register_thread(void) {
 			static struct Timer const initial = {.start = 0, .stop = 0};
@@ -72,7 +79,7 @@ namespace DAEMON {
 				timer.stop = now + milliseconds;
 			}
 			sleep_condition.notify_one();
-			vTaskDelay(1);
+			yield();
 		}
 
 		void woke(size_t const timer_index) {
@@ -81,7 +88,7 @@ namespace DAEMON {
 
 		void loop(void) {
 			if (!enable_sleep) return;
-			if (keep_await.load()) return;
+			if (keep_awake.load()) return;
 			for (;;)
 				try {
 					Debug::print_thread("DEBUG: DAEMON::Sleep::loop");
@@ -108,11 +115,11 @@ namespace DAEMON {
 							Debug::println("ms");
 							Debug::flush();
 						}
-						vTaskDelay(1);
+						yield();
 						LORA::sleep();
 						esp_sleep_enable_timer_wakeup(duration * 1000);
 						esp_light_sleep_start();
-						vTaskDelay(1);
+						yield();
 					}
 				}
 				catch (...) {
@@ -127,7 +134,7 @@ namespace DAEMON {
 			for (;;)
 				try {
 					LORA::Receive::packet();
-					vTaskDelay(1);
+					yield();
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::LoRa::loop exception thrown");
@@ -141,7 +148,7 @@ namespace DAEMON {
 
 		void run(void) {
 			condition.notify_one();
-			vTaskDelay(1);
+			yield();
 		}
 
 		[[noreturn]]
@@ -161,7 +168,7 @@ namespace DAEMON {
 						OLED::display();
 					}
 
-					vTaskDelay(1);
+					yield();
 					std::unique_lock<std::mutex> lock(mutex);
 					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SYNCHONIZE_INTERVAL - 1));
 				}
@@ -208,10 +215,10 @@ namespace DAEMON {
 	}
 
 	namespace Push {
-		static std::atomic<SerialNumber> current_serial(0);
-		static std::atomic<SerialNumber> acked_serial(0);
 		static std::mutex mutex;
 		static std::condition_variable condition;
+		static std::atomic<SerialNumber> current_serial(0);
+		static std::atomic<SerialNumber> acked_serial(0);
 		static std::atomic<bool> send_success;
 
 		static void send_delay(size_t const sleep) {
@@ -219,23 +226,24 @@ namespace DAEMON {
 			thread_delay(ACK_TIMEOUT);
 		}
 
-		static void send_data(struct Data const *const data) {
+		static void send_data(struct Data const data) {
 			if (enable_gateway) {
-				if (WIFI::upload(my_device_id, ++current_serial, data)) {
+				if (WIFI::upload(my_device_id, ++current_serial, &data)) {
+					send_success.store(true);
 					OLED_LOCK(oled_lock);
 					OLED::draw_received();
 				}
 				else {
 					COM::print("HTTP unable to send data: time=");
-					COM::println(String(data->time));
+					COM::println(String(data.time));
 				}
 			}
 			else {
 				/* TODO: add routing */
-				Sleep::keep_await = true;
-				send_success = false;
+				Debug::println("DEBUG: DAEMON::Push::send_data start");
+				Sleep::keep_awake.store(true);
 				for (unsigned int t=0; t<RESEND_TIMES; ++t) {
-					LORA::Send::SEND(my_device_id, ++current_serial, data);
+					LORA::Send::SEND(my_device_id, ++current_serial, &data);
 					thread_delay(ACK_TIMEOUT);
 					if (acked_serial.load() == current_serial.load()) {
 						send_success = true;
@@ -243,14 +251,15 @@ namespace DAEMON {
 						break;
 					}
 				}
-				Sleep::keep_await = false;
+				Sleep::keep_awake = false;
+				Debug::println("DEBUG: DAEMON::Push::send_data end");
 			}
 		}
 
 		void data(struct Data const *const data) {
 			SDCard::add_data(data);
 			condition.notify_one();
-			vTaskDelay(1);
+			yield();
 		}
 
 		void ack(SerialNumber const serial) {
@@ -265,21 +274,16 @@ namespace DAEMON {
 				try {
 					Debug::print_thread("DEBUG: DAEMON::Push::loop");
 					struct Data data;
+					send_success.store(false);
 					if (SDCard::read_data(&data)) {
 						esp_pthread_set_cfg(&esp_pthread_cfg);
-						std::thread(send_data, &data).detach();
+						std::thread(send_data, data).detach();
 					}
 					std::unique_lock<std::mutex> lock(mutex);
-					if (send_success) {
-						Sleep::time(sleep, SEND_INTERVAL);
-						condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_INTERVAL));
-						Sleep::woke(sleep);
-					}
-					else {
-						Sleep::time(sleep, SEND_IDLE_INTERVAL);
-						condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(SEND_IDLE_INTERVAL));
-						Sleep::woke(sleep);
-					}
+					unsigned long int const wait = send_success.load() ? SEND_INTERVAL : SEND_IDLE_INTERVAL;
+					Sleep::time(sleep, wait);
+					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(wait));
+					Sleep::woke(sleep);
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Push::loop exception thrown");

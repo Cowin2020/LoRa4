@@ -138,12 +138,24 @@ namespace SDCard {
 		}
 
 		void next_data(void) {
+			{
+				DEBUG_LOCK(debug_lock);
+				Debug::print("DEBUG: SDCard::next_data current_position=");
+				Debug::print(current_position);
+				Debug::print(" next_position=");
+				Debug::println(next_position);
+				Debug::flush();
+			}
 			if (!enable_measure) return;
 			if (current_position == next_position) return;
 			DEVICE_LOCK(device_lock);
 			class File file = SD.open(DATA_FILE_PATH, "r+", true);
 			if (!file) {
 				COM::println("ERROR: SDCard::next_data failed to open data file");
+				return;
+			}
+			if (!file.seek(current_position)) {
+				COM::println("ERROR: SDCard::next_data failed to seek data file");
 				return;
 			}
 			file.write('1');
@@ -156,15 +168,22 @@ namespace SDCard {
 			pinMode(SD_MISO, INPUT_PULLUP);
 			SPI_1.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 			if (SD.begin(SD_CS, SPI_1)) {
-				Display::println("SD card initialized");
-				COM::println(String("SD Card type: ") + String(SD.cardType()));
-				Display::println("Cleaning up data file");
-				OLED::display();
+				{
+					OLED_LOCK(oled_lock);
+					Display::println("SD card initialized");
+					COM::println(String("SD Card type: ") + String(SD.cardType()));
+					Display::println("Cleaning up data file");
+					OLED::display();
+				}
 				clean_up();
-				Display::println("Data file cleaned");
-				OLED::display();
+				{
+					OLED_LOCK(oled_lock);
+					Display::println("Data file cleaned");
+					OLED::display();
+				}
 				return true;
 			} else {
+				OLED_LOCK(oled_lock);
 				Display::println("SD card uninitialized");
 				OLED::display();
 				return false;

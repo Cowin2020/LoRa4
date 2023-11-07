@@ -57,8 +57,6 @@ namespace OLED {
 	}
 
 	#if defined(ENABLE_OLED_OUTPUT)
-		class String message;
-
 		void initialize(void) {
 			DEVICE_LOCK(device_lock);
 			SSD1306.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR);
@@ -76,12 +74,13 @@ namespace OLED {
 #if !defined(NDEBUG)
 	namespace Debug {
 		void print_thread(char const *const message) {
-			OLED_LOCK(oled_lock);
+			DEBUG_LOCK(debug_lock);
 			Debug::print(message);
 			Debug::print(" core=");
 			Debug::print(xPortGetCoreID());
 			Debug::print(" stack=");
 			Debug::println(uxTaskGetStackHighWaterMark(nullptr));
+			Debug::flush();
 		}
 }
 #endif
