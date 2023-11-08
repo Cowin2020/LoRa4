@@ -85,6 +85,10 @@ namespace LORA {
 		LoRa.sleep();
 	}
 
+	void wake(void) {
+		LoRa.idle();
+	}
+
 	namespace Send {
 		static bool packet(
 			char const *const message,

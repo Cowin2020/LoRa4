@@ -46,6 +46,7 @@ namespace DAEMON {
 		//	TickType_t const ticks = ms / portTICK_PERIOD_MS;
 		TickType_t const ticks = pdMS_TO_TICKS(ms);
 		vTaskDelay(ticks>0 ? ticks : 1);
+		//	std::this_thread::sleep_for(std::chrono::duration<unsigned long int, std::milli>(ms));
 	}
 
 	static void yield(void) {
@@ -71,6 +72,14 @@ namespace DAEMON {
 		}
 
 		void time(size_t const timer_index, unsigned long int const milliseconds) {
+			{
+				DEBUG_LOCK(debug_lock);
+				Debug::print("DEBUG: DAEMOM::Sleep::time timer_index=");
+				Debug::print(timer_index);
+				Debug::print(" milliseconds=");
+				Debug::println(milliseconds);
+				Debug::flush();
+			}
 			{
 				std::lock_guard<std::mutex> lock(timer_mutex);
 				struct Timer &timer = timers[timer_index];
@@ -100,8 +109,10 @@ namespace DAEMON {
 						for (struct Timer &timer : timers)
 							if (now - timer.start >= timer.stop - timer.start)
 								awake = true;
-							else if (duration > timer.stop - now)
-								duration = timer.stop - now;
+							else {
+								unsigned long int const d = timer.stop - now;
+								if (duration > d) duration = d;
+							}
 					}
 					if (awake || duration <= SLEEP_MARGIN) {
 						std::unique_lock<std::mutex> lock(sleep_mutex);
@@ -115,12 +126,12 @@ namespace DAEMON {
 							Debug::println("ms");
 							Debug::flush();
 						}
-						yield();
 						LORA::sleep();
 						esp_sleep_enable_timer_wakeup(duration * 1000);
 						esp_light_sleep_start();
-						yield();
+						LORA::wake();
 					}
+					yield();
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Sleep::loop exception thrown");
@@ -221,11 +232,6 @@ namespace DAEMON {
 		static std::atomic<SerialNumber> acked_serial(0);
 		static std::atomic<bool> send_success;
 
-		static void send_delay(size_t const sleep) {
-			Sleep::time(sleep, SEND_INTERVAL);
-			thread_delay(ACK_TIMEOUT);
-		}
-
 		static void send_data(struct Data const data) {
 			if (enable_gateway) {
 				if (WIFI::upload(my_device_id, ++current_serial, &data)) {
@@ -251,12 +257,13 @@ namespace DAEMON {
 						break;
 					}
 				}
-				Sleep::keep_awake = false;
+				Sleep::keep_awake.store(false);
 				Debug::println("DEBUG: DAEMON::Push::send_data end");
 			}
 		}
 
 		void data(struct Data const *const data) {
+			Debug::println("DEBUG: DAEMON::Push::data");
 			SDCard::add_data(data);
 			condition.notify_one();
 			yield();
@@ -280,10 +287,15 @@ namespace DAEMON {
 						std::thread(send_data, data).detach();
 					}
 					std::unique_lock<std::mutex> lock(mutex);
-					unsigned long int const wait = send_success.load() ? SEND_INTERVAL : SEND_IDLE_INTERVAL;
-					Sleep::time(sleep, wait);
-					condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(wait));
-					Sleep::woke(sleep);
+					#if SEND_IDLE_INTERVAL > SEND_INTERVAL
+						if (!send_success.load()) {
+							unsigned long int const wait = SEND_IDLE_INTERVAL - SEND_INTERVAL;
+							Sleep::time(sleep, wait);
+							condition.wait_for(lock, std::chrono::duration<unsigned long int, std::milli>(wait));
+							Sleep::woke(sleep);
+						}
+					#endif
+					thread_delay(SEND_INTERVAL);
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Push::loop exception thrown");
@@ -318,7 +330,7 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			size_t const sleep = Sleep::register_thread();
-			thread_delay(300);
+			thread_delay(1000);
 			for (;;)
 				try {
 					Debug::print_thread("DEBUG: DAEMON::Measure::loop");
@@ -328,8 +340,19 @@ namespace DAEMON {
 						Push::data(&data);
 					}
 					else COM::println("Failed to measure");
+					{
+						DEBUG_LOCK(debug_lock);
+						Debug::print("DEBUG: DAEMON::Measure::loop sleep ");
+						Debug::println(millis());
+						Debug::flush();
+					}
 					Sleep::time(sleep, MEASURE_INTERVAL);
 					thread_delay(MEASURE_INTERVAL);
+					{
+						DEBUG_LOCK(debug_lock);
+						Debug::print("DEBUG: DAEMON::Measure::loop wake ");
+						Debug::println(millis());
+					}
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Measure::loop exception thrown");
@@ -346,8 +369,6 @@ namespace DAEMON {
 		std::thread(LoRa::loop).detach();
 
 		if (enable_gateway) {
-			// esp_pthread_set_cfg(&esp_pthread_cfg);
-			// std::thread(Internet::loop).detach();
 			esp_pthread_set_cfg(&esp_pthread_cfg);
 			std::thread(Time::loop).detach();
 		}
