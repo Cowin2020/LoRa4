@@ -108,15 +108,6 @@ namespace DAEMON {
 		static void sleep(struct Alarm *const timer_alarm, millis_t const duration) {
 			{
 				millis_t now = millis();
-				{
-					DEBUG_LOCK(debug_lock);
-					Debug::print("DEBUG: DAEMON::Schedule::sleep ");
-					Debug::print(now);
-					Debug::print('+');
-					Debug::print(duration);
-					Debug::print('=');
-					Debug::println(now + duration);
-				}
 				std::lock_guard<std::mutex> lock(timer_mutex);
 				for (struct Timer &timer: timer_list)
 					if (timer.alarm == timer_alarm) {
@@ -129,10 +120,6 @@ namespace DAEMON {
 			}
 		bed:
 			{
-				{
-					DEBUG_LOCK(debug_lock);
-					Debug::println("DEBUG: DAEMON::Schedule::sleep goto bed");
-				}
 				timer_alarm->awake.store(false);
 				alarm.notify();
 				std::unique_lock<std::mutex> lock(timer_alarm->mutex);
@@ -141,12 +128,6 @@ namespace DAEMON {
 		}
 
 		static void fall_asleep(millis_t const duration) {
-			{
-				DEBUG_LOCK(debug_lock);
-				Debug::print("DEBUG: DAEMON::Schedule::fall_asleep ");
-				Debug::println(duration);
-				Debug::flush();
-			}
 			#if !defined(ENABLE_SLEEP)
 				thread_delay(duration);
 			#else
@@ -171,25 +152,8 @@ namespace DAEMON {
 					struct Timer const *soonest = nullptr;
 					millis_t const now = millis();
 					{
-						DEBUG_LOCK(debug_lock);
-						Debug::print("DEBUG: DAEMON::Schedule::loop now = ");
-						Debug::println(now);
-					}
-					{
 						std::lock_guard<std::mutex> lock(timer_mutex);
 						for (struct Timer &timer: timer_list) {
-							{
-								DEBUG_LOCK(debug_lock);
-								Debug::print("DEBUG: DAEMON::Schedule::loop timer \"");
-								Debug::print(timer.name);
-								Debug::print("\": ");
-								Debug::print(timer.start);
-								Debug::print('+');
-								Debug::print(timer.duration);
-								Debug::print('=');
-								Debug::println(timer.start + timer.duration);
-								Debug::flush();
-							}
 							if (!timer.duration)
 								wake = true;
 							else if (timer.duration <= now - timer.start) {
@@ -209,16 +173,8 @@ namespace DAEMON {
 							continue;
 						}
 					}
-					{
-						DEBUG_LOCK(debug_lock);
-						Debug::println("DEBUG: DAEMON::Schedule::loop start wait for condition");
-					}
 					std::unique_lock<std::mutex> lock(alarm.mutex);
 					alarm.condition_variable.wait(lock, [] {return alarm.awake.load();});
-					{
-						DEBUG_LOCK(debug_lock);
-						Debug::println("DEBUG: DAEMON::Schedule::loop stop wait for condition");
-					}
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Schedule::loop exception thrown");
@@ -253,7 +209,6 @@ namespace DAEMON {
 			Schedule::add_timer(&alarm, "DAEMON::Time");
 			for (;;)
 				try {
-					Debug::print_thread("DEBUG: DAEMON::Time::loop");
 					struct FullTime fulltime;
 					if (NTP::now(&fulltime)) {
 						RTC::set(&fulltime);
@@ -289,7 +244,6 @@ namespace DAEMON {
 			thread_delay(SYNCHONIZE_TIMEOUT);
 			for (;;)
 				try {
-					Debug::print_thread("DEBUG: DAEMON::AskTime::loop");
 					LORA::Send::ASKTIME();
 					thread_delay(SYNCHONIZE_TIMEOUT);
 					Schedule::sleep(&alarm, SYNCHONIZE_INTERVAL - SYNCHONIZE_TIMEOUT + rand_int<uint8_t>());
@@ -320,14 +274,7 @@ namespace DAEMON {
 			}
 			else {
 				/* TODO: add routing */
-				//	struct Alarm my_alarm;
-				//	Schedule::add_timer(&my_alarm, "send_data");
 				for (unsigned int t=0; t<RESEND_TIMES; ++t) {
-					{
-						DEBUG_LOCK(debug_lock);
-						Debug::print("DEBUG: DAEMON::Push::send_data ");
-						Debug::println(t);
-					}
 					LORA::Send::SEND(my_device_id, ++current_serial, &data);
 					thread_delay(ACK_TIMEOUT);
 					if (acked_serial.load() == current_serial.load()) {
@@ -336,13 +283,10 @@ namespace DAEMON {
 						break;
 					}
 				}
-				//	Schedule::remove_timer(&my_alarm);
 			}
-			//	Schedule::alarm.notify();
 		}
 
 		void data(struct Data const *const data) {
-			Debug::println("DEBUG: DAEMON::Push::data");
 			SDCard::add_data(data);
 		}
 
@@ -356,7 +300,6 @@ namespace DAEMON {
 			thread_delay(500);
 			for (;;)
 				try {
-					Debug::print_thread("DEBUG: DAEMON::Push::loop");
 					struct Data data;
 					send_success.store(false);
 					if (SDCard::read_data(&data)) {
@@ -365,13 +308,8 @@ namespace DAEMON {
 						send_data(data);
 					}
 					#if SEND_IDLE_INTERVAL > SEND_INTERVAL
-						if (!send_success.load()) {
-							{
-								DEBUG_LOCK(debug_lock);
-								Debug::println("DEBUG: DAEMON::Push::loop unsuccessed send");
-							}
+						if (!send_success.load())
 							Schedule::sleep(&alarm, SEND_IDLE_INTERVAL);
-						}
 						else
 					#endif
 							Schedule::sleep(&alarm, SEND_INTERVAL);
@@ -390,7 +328,6 @@ namespace DAEMON {
 			for (;;)
 				try {
 					Schedule::sleep(&alarm, CLEANLOG_INTERVAL);
-					Debug::print_thread("DEBUG: DAEMON::CleanLog::loop");
 					SDCard::clean_up();
 				}
 				catch (...) {
@@ -417,19 +354,13 @@ namespace DAEMON {
 			thread_delay(1000);
 			for (;;)
 				try {
-					Debug::print_thread("DEBUG: DAEMON::Measure::loop");
 					struct Data data;
 					if (Sensor::measure(&data)) {
 						print_data(&data);
 						Push::data(&data);
 					}
-					else COM::println("Failed to measure");
-					{
-						DEBUG_LOCK(debug_lock);
-						Debug::print("DEBUG: DAEMON::Measure::loop sleep, now=");
-						Debug::println(millis());
-						Debug::flush();
-					}
+					else
+						COM::println("Failed to measure");
 					Schedule::sleep(&alarm, MEASURE_INTERVAL);
 				}
 				catch (...) {
