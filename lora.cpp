@@ -332,7 +332,7 @@ namespace LORA {
 						return;
 					}
 
-					SerialNumber const serial = *reinterpret_cast<Device const *>(content.data() + 2 * sizeof (Device));
+					SerialNumber const serial = *reinterpret_cast<SerialNumber const *>(content.data() + 2 * sizeof (Device));
 					{
 						DEBUG_LOCK(debug_lock);
 						Debug::print("DEBUG: LORA::Receive::ACK serial=");

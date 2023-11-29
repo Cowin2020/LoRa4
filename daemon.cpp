@@ -274,7 +274,7 @@ namespace DAEMON {
 			}
 			else {
 				/* TODO: add routing */
-				for (unsigned int t=0; t<RESEND_TIMES; ++t) {
+				for (unsigned int t=0;;) {
 					LORA::Send::SEND(my_device_id, ++current_serial, &data);
 					thread_delay(ACK_TIMEOUT);
 					if (acked_serial.load() == current_serial.load()) {
@@ -282,6 +282,9 @@ namespace DAEMON {
 						SDCard::next_data();
 						break;
 					}
+					if (t >= RESEND_TIMES) break;
+					thread_delay(SEND_INTERVAL);
+					++t;
 				}
 			}
 		}
