@@ -46,7 +46,6 @@ static inline TO const *pointer_offset(FROM const *const from, size_t const offs
 }
 
 namespace LORA {
-	static std::mutex mutex;
 	static Device last_receiver = 0;
 
 	unsigned long int last_time = 0;
@@ -130,7 +129,7 @@ namespace LORA {
 			uint8_t tag[CIPHER_TAG_SIZE];
 			cipher.computeTag(tag, sizeof tag);
 
-			std::lock_guard<std::mutex> lock(mutex);
+			DEVICE_LOCK(device_lock);
 			LoRa.beginPacket();
 			LoRa.write(packet_type);
 			LoRa.write(device);
@@ -470,8 +469,11 @@ namespace LORA {
 		}
 
 		void packet(void) {
-			std::unique_lock<std::mutex> lock(mutex);
-			signed int const parse_size = LoRa.parsePacket();
+			signed int parse_size;
+			{
+				DEVICE_LOCK(device_lock);
+				parse_size = LoRa.parsePacket();
+			}
 			if (parse_size < 1) return;
 			{
 				DEBUG_LOCK(debug_lock);
@@ -490,7 +492,6 @@ namespace LORA {
 				Display::println("ERROR: LORA::Receive::packet unable read data from LoRa");
 				return;
 			}
-			lock.unlock();
 			RNG.stir(packet.data(), packet.size(), packet.size() << 2);
 			std::thread(decode, packet).detach();
 		}

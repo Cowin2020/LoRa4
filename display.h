@@ -59,6 +59,10 @@ namespace COM {
 		}
 
 		extern void dump(char const *const label, void const *const memory, size_t const size);
+
+		inline void flush(void) {
+			Serial.flush();
+		}
 	#else
 		inline static void initialize(void) {
 			Serial.end();
@@ -73,6 +77,7 @@ namespace COM {
 			[[maybe_unused]] void const *const memory,
 			[[maybe_unused]] size_t const size
 		) {}
+		inline void flush(void) {}
 	#endif
 }
 
@@ -178,15 +183,15 @@ namespace Debug {
 	}
 
 	#if defined(NDEBUG)
-		inline static void print_thread(char const *const message) {}
+		inline void print_thread(char const *const message) {}
 	#else
 		extern void print_thread(char const *message);
 	#endif
 
 	[[maybe_unused]]
-	inline static void flush(void) {
-		#if !defined(NDEBUG) && defined(ENABLE_COM_OUTPUT)
-			Serial.flush();
+	inline void flush(void) {
+		#if !defined(NDEBUG)
+			COM::flush();
 		#endif
 	}
 }

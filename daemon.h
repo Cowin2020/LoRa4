@@ -8,17 +8,10 @@
 /* ************************************************************************** */
 
 namespace DAEMON {
+	typedef unsigned long int millis_t;
 	extern void thread_delay(unsigned long int ms);
-	namespace Sleep {
-		struct Timer {
-			unsigned long int start;
-			unsigned long int stop;
-		};
-		extern std::atomic<bool> keep_awake;
-		extern size_t register_thread(void);
-		extern void time(size_t timer_index, unsigned long int milliseconds);
-		extern void woke(size_t const timer_index);
-		extern void loop(void);
+	namespace Schedule {
+		void loop(void);
 	}
 	namespace LoRa {
 		[[noreturn]] extern void loop(void);
