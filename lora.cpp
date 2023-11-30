@@ -182,7 +182,7 @@ namespace LORA {
 
 				RTC::set(time);
 				DAEMON::AskTime::synchronized();
-				LORA::Send::packet("TIME+", PACKET_TIME, my_device_id, time, sizeof *time);
+				Send::packet("TIME+", PACKET_TIME, my_device_id, time, sizeof *time);
 			}
 		}
 
@@ -284,7 +284,7 @@ namespace LORA {
 				if (!upload_success) return;
 
 				Device const router = *reinterpret_cast<Device const *>(content.data() + sizeof device);
-				LORA::Send::packet("ACK", PACKET_ACK, router, content.data(), router_list_size);
+				Send::packet("ACK", PACKET_ACK, router, content.data(), router_list_size);
 			}
 			else {
 				size_t const minimal_content_size =
@@ -306,7 +306,7 @@ namespace LORA {
 				std::memcpy(bounce.data() + sizeof (Device), content.data(), content.size());
 				std::memcpy(bounce.data(), content.data(), sizeof (Device));
 				std::memcpy(bounce.data() + sizeof (Device), &receiver, sizeof receiver);
-				LORA::Send::packet("SEND+", PACKET_SEND, last_receiver, bounce.data(), bounce.size());
+				Send::packet("SEND+", PACKET_SEND, last_receiver, bounce.data(), bounce.size());
 			}
 		}
 

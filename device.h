@@ -15,7 +15,7 @@ extern unsigned long const CPU_frequency;
 
 extern std::mutex device_mutex;
 
-#define DEVICE_LOCK(VARIABLE) std::lock_guard<std::mutex> VARIALBE(device_mutex)
+#define DEVICE_LOCK(VARIABLE) std::lock_guard<std::mutex> VARIALBE{device_mutex}
 
 #if defined(ENABLE_OLED_OUTPUT)
 	#define OLED_LOCK(VARIABLE) DEVICE_LOCK(VARIABLE)
