@@ -2,16 +2,24 @@
 #define INCLUDE_DAEMON_H
 
 #include <atomic>
+#include <condition_variable>
 
 #include <esp_pthread.h>
 
 /* ************************************************************************** */
 
 namespace DAEMON {
-	typedef unsigned long int millis_t;
-	extern void thread_delay(unsigned long int ms);
+	extern void thread_delay(Millisecond ms);
+	struct Alarm {
+		std::mutex mutex;
+		std::condition_variable condition_variable;
+		std::atomic<bool> awake;
+		void notify(void);
+	};
 	namespace Schedule {
-		void loop(void);
+		extern void loop(void);
+		extern void add_timer(struct Alarm *timer_alarm, char const *name);
+		extern void remove_timer(struct Alarm *timer_alarm);
 	}
 	namespace LoRa {
 		[[noreturn]] extern void loop(void);

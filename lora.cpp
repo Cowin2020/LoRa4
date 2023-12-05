@@ -48,7 +48,7 @@ static inline TO const *pointer_offset(FROM const *const from, size_t const offs
 namespace LORA {
 	static Device last_receiver = 0;
 
-	unsigned long int last_time = 0;
+	Millisecond last_time = 0;
 
 	bool initialize(void) {
 		SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
@@ -359,7 +359,7 @@ namespace LORA {
 			}
 		}
 
-		static void decode(std::vector<uint8_t> packet) {
+		static void decode(std::vector<uint8_t> const packet) {
 			static size_t const overhead_size = sizeof (PacketType) + sizeof (Device) + CIPHER_IV_LENGTH + CIPHER_TAG_SIZE;
 			if (packet.size() < overhead_size) {
 				DEBUG_LOCK(debug_lock);
@@ -469,31 +469,25 @@ namespace LORA {
 		}
 
 		void packet(void) {
-			signed int parse_size;
-			{
-				DEVICE_LOCK(device_lock);
-				parse_size = LoRa.parsePacket();
-			}
+			DEVICE_LOCK(device_lock);
+			signed int const parse_size = LoRa.parsePacket();
 			if (parse_size < 1) return;
 			{
-				DEBUG_LOCK(debug_lock);
 				Debug::print("DEBUG: LORA::Receive::packet packet_size ");
 				Debug::println(parse_size);
 			}
 			size_t const packet_size = static_cast<size_t>(LoRa.available());
 			if (packet_size != static_cast<size_t>(parse_size)) {
-				DEBUG_LOCK(debug_lock);
 				Display::println("ERROR: LORA::Receive::packet LoRa.parsePacker != LoRa.available");
 				return;
 			}
-			std::vector<uint8_t> packet(packet_size);
-			if (LoRa.readBytes(packet.data(), packet.size()) != packet.size()) {
-				DEBUG_LOCK(debug_lock);
+			std::vector<uint8_t> buffer(packet_size);
+			if (LoRa.readBytes(buffer.data(), buffer.size()) != buffer.size()) {
 				Display::println("ERROR: LORA::Receive::packet unable read data from LoRa");
 				return;
 			}
-			RNG.stir(packet.data(), packet.size(), packet.size() << 2);
-			std::thread(decode, packet).detach();
+			RNG.stir(buffer.data(), buffer.size(), buffer.size() << 2);
+			std::thread(decode, buffer).detach();
 		}
 	}
 }

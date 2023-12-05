@@ -8,9 +8,10 @@
 
 #include <WString.h>
 
+typedef unsigned long int Millisecond;
+
 typedef uint8_t Device;
 typedef uint32_t SerialNumber;
-typedef unsigned long int Time;
 
 struct [[gnu::packed]] FullTime {
 	unsigned short int year;

@@ -42,11 +42,11 @@ static TYPE rand_int(void) {
 namespace DAEMON {
 	static esp_pthread_cfg_t esp_pthread_cfg;
 
-	void thread_delay(unsigned long int const ms) {
+	void thread_delay(Millisecond const ms) {
 		//	TickType_t const ticks = ms / portTICK_PERIOD_MS;
 		TickType_t const ticks = pdMS_TO_TICKS(ms);
 		vTaskDelay(ticks>0 ? ticks : 1);
-		//	std::this_thread::sleep_for(std::chrono::duration<unsigned long int, std::milli>(ms));
+		//	std::this_thread::sleep_for(std::chrono::duration<Millisecond, std::milli>(ms));
 	}
 
 	static void yield(void) {
@@ -56,13 +56,6 @@ namespace DAEMON {
 		//	std::this_thread::yield();
 	}
 
-	struct Alarm {
-		std::mutex mutex;
-		std::condition_variable condition_variable;
-		std::atomic<bool> awake;
-		void notify(void);
-	};
-
 	void Alarm::notify(void) {
 		awake.store(true);
 		condition_variable.notify_all();
@@ -71,7 +64,7 @@ namespace DAEMON {
 	namespace Schedule {
 		struct Timer {
 			struct Alarm *alarm;
-			millis_t start, duration;
+			Millisecond start, duration;
 			#if !defined(NDEBUG)
 				class String name;
 			#endif
@@ -81,7 +74,7 @@ namespace DAEMON {
 		static std::vector<struct Timer> timer_list;
 		static std::mutex timer_mutex;
 
-		static void add_timer(struct Alarm *const timer_alarm, char const *const name) {
+		void add_timer(struct Alarm *const timer_alarm, char const *const name) {
 			std::lock_guard<std::mutex> lock(timer_mutex);
 			struct Timer const timer {
 				.alarm = timer_alarm,
@@ -95,7 +88,7 @@ namespace DAEMON {
 			timer_list.push_back(timer);
 		}
 
-		static void remove_timer(struct Alarm *const timer_alarm) {
+		void remove_timer(struct Alarm *const timer_alarm) {
 			std::lock_guard<std::mutex> lock(timer_mutex);
 			for (size_t i = 0; i < timer_list.size(); ++i)
 				if (timer_list[i].alarm == timer_alarm) {
@@ -105,9 +98,9 @@ namespace DAEMON {
 				}
 		}
 
-		static void sleep(struct Alarm *const timer_alarm, millis_t const duration) {
+		static void sleep(struct Alarm *const timer_alarm, Millisecond const duration) {
 			{
-				millis_t now = millis();
+				Millisecond now = millis();
 				std::lock_guard<std::mutex> lock(timer_mutex);
 				for (struct Timer &timer: timer_list)
 					if (timer.alarm == timer_alarm) {
@@ -127,7 +120,7 @@ namespace DAEMON {
 			}
 		}
 
-		static void fall_asleep(millis_t const duration) {
+		static void fall_asleep(Millisecond const duration) {
 			if (enable_sleep && duration > SLEEP_MARGIN) {
 				DEVICE_LOCK(device_lock);
 				Debug::flush();
@@ -146,7 +139,7 @@ namespace DAEMON {
 					alarm.awake.store(false);
 					bool wake = false;
 					struct Timer const *soonest = nullptr;
-					millis_t const now = millis();
+					Millisecond const now = millis();
 					{
 						std::lock_guard<std::mutex> lock(timer_mutex);
 						for (struct Timer &timer: timer_list) {
@@ -165,7 +158,17 @@ namespace DAEMON {
 								soonest = &timer;
 						}
 						if (!wake && soonest != nullptr) {
-							fall_asleep(soonest->start + soonest->duration - now);
+							Millisecond duration = soonest->start + soonest->duration - now;
+							if (enable_sleep && duration > SLEEP_MARGIN) {
+								DEVICE_LOCK(device_lock);
+								Debug::flush();
+								LORA::sleep();
+								esp_sleep_enable_timer_wakeup(1000 * (duration - SLEEP_MARGIN));
+								esp_light_sleep_start();
+								LORA::wake();
+								yield();
+							} else
+								thread_delay(duration);
 							continue;
 						}
 					}
@@ -225,7 +228,7 @@ namespace DAEMON {
 	}
 
 	namespace AskTime {
-		static std::atomic<unsigned long int> last_synchronization(0);
+		static std::atomic<Millisecond> last_synchronization(0);
 		static struct Alarm alarm;
 
 		void synchronized(void) {
