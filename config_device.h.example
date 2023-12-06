@@ -35,11 +35,11 @@
 #define IDLE_INTERVAL 123 /* milliseconds */
 #define ACK_TIMEOUT 1000UL /* milliseconds */
 #define RESEND_TIMES 3
+#define MEASURE_INTERVAL 60000UL /* milliseconds */ /* MUST: > SEND_INTERVAL */
 #define SEND_INTERVAL 3000UL /* milliseconds */
-#define SEND_IDLE_INTERVAL (MEASURE_INTERVAL * 2)
+#define SEND_IDLE_INTERVAL (MEASURE_INTERVAL * 10)
 //	#define SEND_IDLE_INTERVAL SEND_INTERVAL
 //	#define SEND_IDLE_INTERVAL 987654UL /* milliseconds */
-#define MEASURE_INTERVAL 60000UL /* milliseconds */ /* MUST: > SEND_INTERVAL */
 #define SYNCHONIZE_INTERVAL 12345678UL /* milliseconds */
 #define SYNCHONIZE_MARGIN 1234UL /* milliseconds */
 #define CLEANLOG_INTERVAL 21600000UL /* milliseconds */

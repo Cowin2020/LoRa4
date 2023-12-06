@@ -94,8 +94,9 @@ namespace DAEMON {
 				if (timer_list[i].alarm == timer_alarm) {
 					timer_list[i] = timer_list[timer_list.size()-1];
 					timer_list.pop_back();
-					return;
+					break;
 				}
+			alarm.notify();
 		}
 
 		static void sleep(struct Alarm *const timer_alarm, Millisecond const duration) {
@@ -112,12 +113,10 @@ namespace DAEMON {
 				return;
 			}
 		bed:
-			{
-				timer_alarm->awake.store(false);
-				alarm.notify();
-				std::unique_lock<std::mutex> lock(timer_alarm->mutex);
-				timer_alarm->condition_variable.wait(lock, [timer_alarm] {return timer_alarm->awake.load();});
-			}
+			timer_alarm->awake.store(false);
+			alarm.notify();
+			std::unique_lock<std::mutex> lock(timer_alarm->mutex);
+			timer_alarm->condition_variable.wait(lock, [timer_alarm] {return timer_alarm->awake.load();});
 		}
 
 		void loop(void) {
@@ -145,21 +144,21 @@ namespace DAEMON {
 							)
 								soonest = &timer;
 						}
-						if (!wake && soonest != nullptr) {
-							Millisecond duration = soonest->start + soonest->duration - now;
-							if (enable_sleep && duration > SLEEP_MARGIN) {
-								DEVICE_LOCK(device_lock);
-								Debug::flush();
-								LORA::sleep();
-								esp_sleep_enable_timer_wakeup(1000 * (duration - SLEEP_MARGIN));
-								esp_light_sleep_start();
-								LORA::wake();
-								yield();
-							}
-							else
-								thread_delay(duration);
-							continue;
+					}
+					if (!wake && soonest != nullptr) {
+						Millisecond duration = soonest->start + soonest->duration - now;
+						if (enable_sleep && duration > SLEEP_MARGIN) {
+							DEVICE_LOCK(device_lock);
+							Debug::flush();
+							LORA::sleep();
+							esp_sleep_enable_timer_wakeup(1000 * (duration - SLEEP_MARGIN));
+							esp_light_sleep_start();
+							LORA::wake();
+							yield();
 						}
+						else
+							thread_delay(duration);
+						continue;
 					}
 					std::unique_lock<std::mutex> lock(alarm.mutex);
 					alarm.condition_variable.wait(lock, [] {return alarm.awake.load();});
