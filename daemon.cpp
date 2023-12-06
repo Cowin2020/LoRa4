@@ -120,18 +120,6 @@ namespace DAEMON {
 			}
 		}
 
-		static void fall_asleep(Millisecond const duration) {
-			if (enable_sleep && duration > SLEEP_MARGIN) {
-				DEVICE_LOCK(device_lock);
-				Debug::flush();
-				LORA::sleep();
-				esp_sleep_enable_timer_wakeup(1000 * (duration - SLEEP_MARGIN));
-				esp_light_sleep_start();
-				LORA::wake();
-			} else
-				thread_delay(duration);
-		}
-
 		void loop(void) {
 			thread_delay(12345);
 			for (;;)
@@ -167,7 +155,8 @@ namespace DAEMON {
 								esp_light_sleep_start();
 								LORA::wake();
 								yield();
-							} else
+							}
+							else
 								thread_delay(duration);
 							continue;
 						}

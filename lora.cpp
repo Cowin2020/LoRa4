@@ -468,6 +468,18 @@ namespace LORA {
 			}
 		}
 
+		static void decode_thread(std::vector<uint8_t> const packet) {
+			struct DAEMON::Alarm alarm;
+			DAEMON::Schedule::add_timer(&alarm, "LoRA::Receive::decode");
+			try {
+				decode(packet);
+			}
+			catch (...) {
+				COM::println("ERROR: exception thrown from LoRa packet decode");
+			}
+			DAEMON::Schedule::remove_timer(&alarm);
+		}
+
 		void packet(void) {
 			DEVICE_LOCK(device_lock);
 			signed int const parse_size = LoRa.parsePacket();
@@ -487,7 +499,7 @@ namespace LORA {
 				return;
 			}
 			RNG.stir(buffer.data(), buffer.size(), buffer.size() << 2);
-			std::thread(decode, buffer).detach();
+			std::thread(decode_thread, buffer).detach();
 		}
 	}
 }
