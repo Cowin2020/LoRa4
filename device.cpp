@@ -217,8 +217,17 @@ namespace NTP {
 	static class DallasTemperature dallas(&onewire_thermometer);
 #endif
 
-#ifdef ENABLE_BME280
+#if defined(ENABLE_SHT40) || defined(ENABLE_BME280)
 	#include <Adafruit_Sensor.h>
+#endif
+
+#ifdef ENABLE_SHT40
+	#include <Adafruit_SHT4x.h>
+
+	static class Adafruit_SHT4x SHT = Adafruit_SHT4x();
+#endif
+
+#ifdef ENABLE_BME280
 	#include <Adafruit_BME280.h>
 
 	static class Adafruit_BME280 BME;
@@ -233,31 +242,37 @@ namespace NTP {
 
 void Data::writeln(class Print *const print) const {
 	print->printf(
-		"%04u-%02u-%02uT%02u:%02u:%02uZ",
+		"%04u-%02u-%02uT%02u:%02u:%02uZ,",
 		this->time.year, this->time.month, this->time.day,
 		this->time.hour, this->time.minute, this->time.second
 	);
 	#ifdef ENABLE_BATTERY_GAUGE
 		print->printf(
-			",%f,%f",
+			"%f,%f,",
 			this->battery_voltage, this->battery_percentage
 		);
 	#endif
 	#ifdef ENABLE_DALLAS
 		print->printf(
-			",%f",
+			"%f,",
 			this->dallas_temperature
+		);
+	#endif
+	#ifdef ENABLE_SHT40
+		print->printf(
+			"%f,%f,",
+			this->sht40_temperature, this->sht40_humidity
 		);
 	#endif
 	#ifdef ENABLE_BME280
 		print->printf(
-			",%f,%f,%f",
+			"%f,%f,%f,",
 			this->bme280_temperature, this->bme280_pressure, this->bme280_humidity
 		);
 	#endif
 	#ifdef ENABLE_LTR390
 		print->printf(
-			",%f",
+			"%f,",
 			this->ltr390_ultraviolet
 		);
 	#endif
@@ -267,13 +282,7 @@ void Data::writeln(class Print *const print) const {
 bool Data::readln(class Stream *const stream) {
 	/* Time */
 	{
-		class String const s = stream->readStringUntil(
-			#if defined(ENABLE_DALLAS) || defined(ENABLE_BME280) || defined(ENABLE_LTR390)
-				','
-			#else
-				'\n'
-			#endif
-		);
+		class String const s = stream->readStringUntil(',');
 		if (
 			sscanf(
 				s.c_str(),
@@ -291,13 +300,7 @@ bool Data::readln(class Stream *const stream) {
 			if (sscanf(s.c_str(), "%f", &this->battery_voltage) != 1) return false;
 		}
 		{
-			class String const s = stream->readStringUntil(
-				#if defined(ENABLE_DALLAS) || defined(ENABLE_BME280) || defined(ENABLE_LTR390)
-					','
-				#else
-					'\n'
-				#endif
-			);
+			class String const s = stream->readStringUntil(',');
 			if (sscanf(s.c_str(), "%f", &this->battery_percentage) != 1) return false;
 		}
 	#endif
@@ -305,14 +308,20 @@ bool Data::readln(class Stream *const stream) {
 	/* Dallas thermometer */
 	#ifdef ENABLE_DALLAS
 		{
-			class String const s = stream->readStringUntil(
-				#if defined(ENABLE_BME280) || defined(ENABLE_LTR390)
-					','
-				#else
-					'\n'
-				#endif
-			);
+			class String const s = stream->readStringUntil(',');
 			if (sscanf(s.c_str(), "%f", &this->dallas_temperature) != 1) return false;
+		}
+	#endif
+
+	/* SHT40 sensor */
+	#ifdef ENABLE_SHT40
+		{
+			class String const s = stream->readStringUntil(',');
+			if (sscanf(s.c_str(), "%f", &this->sht40_temperature) != 1) return false;
+		}
+		{
+			class String const s = stream->readStringUntil(',');
+			if (sscanf(s.c_str(), "%f", &this->sht40_humidity) != 1) return false;
 		}
 	#endif
 
@@ -327,13 +336,7 @@ bool Data::readln(class Stream *const stream) {
 			if (sscanf(s.c_str(), "%f", &this->bme280_pressure) != 1) return false;
 		}
 		{
-			class String const s = stream->readStringUntil(
-				#if defined(ENABLE_LTR390)
-					','
-				#else
-					'\n'
-				#endif
-			);
+			class String const s = stream->readStringUntil(',');
 			if (sscanf(s.c_str(), "%f", &this->bme280_humidity) != 1) return false;
 		}
 	#endif
@@ -346,6 +349,7 @@ bool Data::readln(class Stream *const stream) {
 		}
 	#endif
 
+	stream->readStringUntil('\n');
 	return true;
 }
 
@@ -364,6 +368,13 @@ void Data::println(void) const {
 	#if defined(ENABLE_DALLAS)
 		Display::print("Dallas temp.: ");
 		Display::println(this->dallas_temperature);
+	#endif
+
+	#if defined(ENABLE_SHT40)
+		Display::print("SHT temp.: ");
+		Display::println(this->sht40_temperature);
+		Display::print("SHT humidity: ");
+		Display::println(this->sht40_humidity);
 	#endif
 
 	#if defined(ENABLE_BME280)
@@ -403,6 +414,19 @@ namespace Sensor {
 				Display::println("Thermometer 0 not found");
 				return false;
 			}
+		#endif
+
+		/* Initialize SHT40 sensor */
+		#if defined(ENABLE_SHT40)
+			if (SHT.begin()) {
+				Display::println("SHT40 sensor found");
+			}
+			else {
+				Display::println("SHT40 sensor not found");
+				return false;
+			}
+			SHT.setPrecision(SHT4X_HIGH_PRECISION);
+			SHT.setHeater(SHT4X_NO_HEATER);
 		#endif
 
 		/* Initialize BME280 sensor */
@@ -446,6 +470,12 @@ namespace Sensor {
 		#endif
 		#if defined(ENABLE_DALLAS)
 			data->dallas_temperature = dallas.getTempCByIndex(0);
+		#endif
+		#if defined(ENABLE_SHT40)
+			sensors_event_t temperature_event, humidity_event;
+			SHT.getEvent(&humidity_event, &temperature_event);
+			data->sht40_temperature = temperature_event.temperature;
+			data->sht40_humidity = humidity_event.relative_humidity;
 		#endif
 		#if defined(ENABLE_BME280)
 			data->bme280_temperature = BME.readTemperature();

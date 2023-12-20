@@ -50,6 +50,10 @@ struct [[gnu::packed]] Data {
 	#ifdef ENABLE_DALLAS
 		float dallas_temperature;
 	#endif
+	#ifdef ENABLE_SHT40
+		float sht40_temperature;
+		float sht40_humidity;
+	#endif
 	#ifdef ENABLE_BME280
 		float bme280_temperature;
 		float bme280_pressure;

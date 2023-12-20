@@ -63,6 +63,10 @@ namespace WIFI {
 			#ifdef ENABLE_DALLAS
 				, data->dallas_temperature
 			#endif
+			#ifdef ENABLE_SHT40
+				, data->sht40_temperature
+				, data->sht40_humidity
+			#endif
 			#ifdef ENABLE_BME280
 				, data->bme280_temperature
 				, data->bme280_pressure

@@ -235,7 +235,11 @@ namespace LORA {
 						COM::println("WARN: LoRa SEND: incorrect router list");
 						return;
 					}
-					Device const router = *reinterpret_cast<Device const *>(content.data() + routers_length);
+					Device const router =
+						*reinterpret_cast<Device const *>(
+							content.data()
+							+ routers_length
+						);
 					if (router == device) break;
 					routers_length += sizeof router;
 				}
