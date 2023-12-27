@@ -281,7 +281,7 @@ namespace DAEMON {
 		}
 
 		void ack(SerialNumber const serial) {
-			acked_serial = serial;
+			acked_serial.store(serial);
 		}
 
 		[[noreturn]]
@@ -291,12 +291,13 @@ namespace DAEMON {
 			for (;;)
 				try {
 					struct Data data;
-					send_success.store(false);
 					if (SDCard::read_data(&data)) {
+						send_success.store(false);
 						esp_pthread_set_cfg(&esp_pthread_cfg);
-						//	std::thread(send_data, data).detach();
 						send_data(data);
 					}
+					else
+						send_success.store(true);
 					#if SEND_IDLE_INTERVAL > SEND_INTERVAL
 						if (!send_success.load())
 							Schedule::sleep(&alarm, SEND_IDLE_INTERVAL);
