@@ -5,7 +5,7 @@
 /* ************************************************************************** */
 
 FullTime::operator String(void) const {
-	char buffer[48];
+	char buffer[24];
 	snprintf(
 		buffer, sizeof buffer,
 		"%04u-%02u-%02uT%02u:%02u:%02uZ",

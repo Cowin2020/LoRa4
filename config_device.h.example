@@ -2,12 +2,12 @@
 #define INCLUDE_CONFIG_DEVICE_H
 
 /* Debug */
-//	#define NDEBUG
-//	#define DEBUG_CLEAN_OLD_DATA
-//	#define ENABLE_LOG_FILE
+#define NDEBUG
+//	#define DEBUG_CLEAN_DATA
 
 /* Hareware */
 #define ENABLE_SDCARD
+//	#define ENABLE_LOG_FILE
 #define ENABLE_DALLAS 3
 #define ENABLE_SHT40
 #define ENABLE_BME280
@@ -38,8 +38,8 @@
 #define RESEND_TIMES 3
 #define MEASURE_INTERVAL 60000UL /* milliseconds */ /* MUST: > SEND_INTERVAL */
 #define SEND_INTERVAL 3000UL /* milliseconds */
-#define SEND_IDLE_INTERVAL (MEASURE_INTERVAL * 10)
-//	#define SEND_IDLE_INTERVAL SEND_INTERVAL
+//	#define SEND_IDLE_INTERVAL (MEASURE_INTERVAL * 10)
+#define SEND_IDLE_INTERVAL SEND_INTERVAL
 //	#define SEND_IDLE_INTERVAL 987654UL /* milliseconds */
 #define SYNCHONIZE_INTERVAL 12345678UL /* milliseconds */
 #define SYNCHONIZE_MARGIN 1234UL /* milliseconds */

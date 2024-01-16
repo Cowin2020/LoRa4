@@ -287,7 +287,7 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			Schedule::add_timer(&alarm, "DAEMON::Push");
-			thread_delay(500);
+			thread_delay(SEND_INTERVAL);
 			for (;;)
 				try {
 					struct Data data;

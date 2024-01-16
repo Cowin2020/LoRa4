@@ -25,9 +25,28 @@ namespace SDCard {
 		static off_t current_position = 0;
 		static off_t next_position = 0;
 
+		void clean_up_failed(void) {
+			struct FullTime fulltime;
+			RTC::now(&fulltime);
+			char filename[32];
+			snprintf(
+				filename, sizeof filename,
+				"error_%04u%02u%02uT%02u%02u%02u.csv",
+				fulltime.year, fulltime.month, fulltime.day,
+				fulltime.hour, fulltime.minute, fulltime.second
+			);
+			SD.rename(cleanup_file_path, filename);
+			current_position = 0;
+			next_position = 0;
+		}
+
 		void clean_up(void) {
 			if (!enable_measure) return;
 			DEVICE_LOCK(device_lock);
+			OLED::home();
+			Display::println("Cleaning up data file");
+			OLED::display();
+			COM::flush();
 			if (SD.exists(cleanup_file_path))
 				SD.remove(data_file_path);
 			else if (!SD.rename(data_file_path, cleanup_file_path))
@@ -35,12 +54,14 @@ namespace SDCard {
 			class File cleanup_file = SD.open(cleanup_file_path, "r");
 			if (!cleanup_file) {
 				COM::println("Fail to open clean-up file");
+				clean_up_failed();
 				return;
 			}
 			class File data_file = SD.open(data_file_path, "w");
 			if (!data_file) {
 				COM::println("Fail to create data file");
 				cleanup_file.close();
+				clean_up_failed();
 				return;
 			}
 
@@ -48,15 +69,17 @@ namespace SDCard {
 				for (;;) {
 					class String const s = cleanup_file.readStringUntil(',');
 					if (!s.length()) break;
-					bool const sent = s != "0";
 
 					struct Data data;
-					if (!data.readln(&cleanup_file)) {
-						COM::println("Clean-up: invalid data");
-						break;
+					if (!(s == "0" || s == "1") || !data.readln(&cleanup_file)) {
+						COM::println("WARN: SDCard::clean_up: invalid data");
+						cleanup_file.close();
+						data_file.close();
+						clean_up_failed();
+						return;
 					}
 
-					if (!sent) {
+					if (s == "0") {
 						data_file.print("0,");
 						data.writeln(&data_file);
 					}
@@ -65,6 +88,8 @@ namespace SDCard {
 
 			cleanup_file.close();
 			data_file.close();
+			current_position = 0;
+			next_position = 0;
 			SD.remove(cleanup_file_path);
 		}
 
@@ -102,6 +127,7 @@ namespace SDCard {
 				}
 			#endif
 		}
+
 		bool read_data(struct Data *const data) {
 			if (!enable_measure) return false;
 			DEVICE_LOCK(device_lock);
@@ -172,8 +198,6 @@ namespace SDCard {
 					OLED_LOCK(oled_lock);
 					Display::println("SD card initialized");
 					COM::println(String("SD Card type: ") + String(SD.cardType()));
-					Display::println("Cleaning up data file");
-					OLED::display();
 				}
 				clean_up();
 				{

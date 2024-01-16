@@ -26,7 +26,7 @@ extern std::mutex device_mutex;
 #if defined(NDEBUG)
 	#define DEBUG_LOCK(VARIABLE)
 #else
-	#define DEBUG_LOCK(VARIABLE) OLED_LOCK(VARIABLE)
+	#define DEBUG_LOCK(VARIABLE) DEVICE_LOCK(VARIABLE)
 #endif
 
 namespace RTC {
