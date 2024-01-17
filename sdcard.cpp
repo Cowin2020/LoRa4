@@ -7,9 +7,11 @@
 #include "display.h"
 #include "sdcard.h"
 
-#define DATA_FILE_PATH "/data.csv"
-#define CLEANUP_FILE_PATH "/cleanup.csv"
-#define LOG_FILE_PATH "/log.csv"
+#define DATA_FILE_PATH "/DATA.CSV"
+#define CLEANUP_FILE_PATH "/CLEANUP.CSV"
+#define LOG_FILE_PATH "/LOG.CSV"
+#define ERROR_FILE_PATH_LENGTH 16
+#define ERROR_FILE_PATH_PATTERN "/ERROR%03u.CSV"
 #include "config_device.h"
 
 /* ************************************************************************** */
@@ -25,16 +27,23 @@ namespace SDCard {
 		static off_t current_position = 0;
 		static off_t next_position = 0;
 
+		unsigned int count_files(void) {
+			File root = SD.open("/");
+			if (!root || !root.isDirectory()) return 0;
+			unsigned int count = 0;
+			for (;;) {
+				File entry = root.openNextFile();
+				if (!entry) break;
+				entry.close();
+				++count;
+			}
+			return count;
+		}
+
 		void clean_up_failed(void) {
-			struct FullTime fulltime;
-			RTC::now(&fulltime);
-			char filename[32];
-			snprintf(
-				filename, sizeof filename,
-				"error_%04u%02u%02uT%02u%02u%02u.csv",
-				fulltime.year, fulltime.month, fulltime.day,
-				fulltime.hour, fulltime.minute, fulltime.second
-			);
+			unsigned int const num_of_files = count_files();
+			char filename[ERROR_FILE_PATH_LENGTH];
+			snprintf(filename, sizeof filename, ERROR_FILE_PATH_PATTERN, num_of_files);
 			SD.rename(cleanup_file_path, filename);
 			current_position = 0;
 			next_position = 0;
@@ -147,13 +156,18 @@ namespace SDCard {
 				class String const s = file.readStringUntil(',');
 				if (!s.length()) break;
 				bool const sent = s != "0";
+				if (s != "0" && s != "1") {
+					COM::print("ERROR: SDCard::read_data invalid flag at ");
+					COM::println(file.position());
+					break;
+				}
 				if (!data->readln(&file)) {
-					COM::print("ERROR: SDCard::read_data read invalid data at ");
+					COM::print("ERROR: SDCard::read_data invalid data at ");
 					COM::println(file.position());
 					break;
 				}
 				next_position = file.position();
-				if (!sent) {
+				if (s == "0") {
 					success = true;
 					break;
 				}
