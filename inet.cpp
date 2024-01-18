@@ -107,10 +107,16 @@ namespace WIFI {
 					NTP::initialize();
 				}
 				last_WiFi = this_WiFi;
+				switch (this_WiFi) {
+					case WL_NO_SSID_AVAIL:
+					case WL_CONNECT_FAILED:
+					case WL_CONNECTION_LOST:
+					case WL_DISCONNECTED:
+						WiFi.begin();
+				}
 			}
-			if (this_WiFi == WL_CONNECTED) {
+			if (this_WiFi == WL_CONNECTED)
 				NTP::synchronize();
-			}
 		}
 	}
 }
