@@ -464,8 +464,8 @@ namespace Sensor {
 				data->battery_voltage = battery.readVoltage() / 1000;
 				data->battery_percentage = battery.readPercentage();
 			#elif ENABLE_BATTERY_GAUGE == BATTERY_GAUGE_LC709203F
-				data.battery_voltage = battery.cellVoltage();
-				data.battery_percentage = battery.cellPercent();
+				data->battery_voltage = battery.cellVoltage();
+				data->battery_percentage = battery.cellPercent();
 			#endif
 		#endif
 		#if defined(ENABLE_DALLAS)
