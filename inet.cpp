@@ -41,6 +41,10 @@ namespace WIFI {
 		}
 	}
 
+	bool ready(void) {
+		return WiFi.status() == WL_CONNECTED;
+	}
+
 	bool upload(Device const device, SerialNumber const serial, struct Data const *const data) {
 		signed int const WiFi_status = WiFi.status();
 		if (WiFi_status != WL_CONNECTED) {
@@ -93,10 +97,9 @@ namespace WIFI {
 		return true;
 	}
 
-	static bool first_WiFi = false;
-	static wl_status_t last_WiFi = WL_IDLE_STATUS;
-
 	void loop(void) {
+		static bool first_WiFi = false;
+		static wl_status_t last_WiFi = WL_IDLE_STATUS;
 		if (enable_gateway) {
 			wl_status_t this_WiFi = WiFi.status();
 			if (this_WiFi != last_WiFi) {
@@ -106,7 +109,6 @@ namespace WIFI {
 					first_WiFi = true;
 					NTP::initialize();
 				}
-				last_WiFi = this_WiFi;
 				switch (this_WiFi) {
 					case WL_NO_SSID_AVAIL:
 					case WL_CONNECT_FAILED:
@@ -114,6 +116,7 @@ namespace WIFI {
 					case WL_DISCONNECTED:
 						WiFi.begin();
 				}
+				last_WiFi = this_WiFi;
 			}
 			if (this_WiFi == WL_CONNECTED)
 				NTP::synchronize();

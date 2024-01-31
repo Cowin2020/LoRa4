@@ -296,6 +296,20 @@ Temporary file name in SD card for clean up data file
 
 Type: C string
 
+START_DELAY
+-----------
+
+Delay in milliseconds before starting first measure and send data.
+
+Type: natural number
+
+IDLE_INTERVAL
+-------------
+
+Delay in milliseconds in the idle loop.
+
+Type: natural number
+
 ACK_TIMEOUT
 -----------
 
