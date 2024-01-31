@@ -37,6 +37,7 @@ namespace DAEMON {
 		extern void ack(SerialNumber serial);
 	}
 	namespace Measure {
+		void set_interval(Millisecond ms);
 		[[noreturn]] extern void loop(void);
 	}
 	extern void run(void);

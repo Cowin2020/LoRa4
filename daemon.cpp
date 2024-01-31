@@ -328,6 +328,7 @@ namespace DAEMON {
 	}
 
 	namespace Measure {
+		static Millisecond interval = MEASURE_INTERVAL;
 		static struct Alarm alarm;
 
 		static void print_data(struct Data const *const data) {
@@ -337,6 +338,10 @@ namespace DAEMON {
 			Display::println(my_device_id);
 			data->println();
 			OLED::display();
+		}
+
+		void set_interval(Millisecond const ms) {
+			interval = max((2 + RESEND_TIMES) * SEND_INTERVAL, ms);
 		}
 
 		[[noreturn]]
@@ -352,7 +357,7 @@ namespace DAEMON {
 					}
 					else
 						COM::println("Failed to measure");
-					Schedule::sleep(&alarm, MEASURE_INTERVAL);
+					Schedule::sleep(&alarm, interval);
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Measure::loop exception thrown");
