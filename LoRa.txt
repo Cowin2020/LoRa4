@@ -94,6 +94,7 @@ Protocol of uploading data
 			terminal device ID
 			router list
 			serial code
+			(optional device configuration)
 		authentication tag
 	4. Optional repeaters:
 		type ACK
@@ -103,6 +104,7 @@ Protocol of uploading data
 			repeat terminal device ID
 			router list with first element removed
 			serial code
+			(optional device configuration)
 		authentication tag
 	5. Terminal:
 		if ACK is received, done;

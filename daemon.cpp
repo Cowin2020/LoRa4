@@ -249,10 +249,16 @@ namespace DAEMON {
 
 		static void send_data(struct Data const data) {
 			if (enable_gateway) {
-				if (WIFI::upload(my_device_id, ++current_serial, &data)) {
+				struct WIFI::upload__result const upload_result =
+					WIFI::upload(my_device_id, ++current_serial, &data);
+				if (upload_result.upload_success) {
 					send_success.store(true);
-					OLED_LOCK(oled_lock);
-					OLED::draw_received();
+					{
+						OLED_LOCK(oled_lock);
+						OLED::draw_received();
+					}
+					if (upload_result.update_configuration)
+						upload_result.configuration.apply();
 				}
 				else {
 					COM::print("HTTP unable to send data: time=");

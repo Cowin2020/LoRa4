@@ -3,6 +3,7 @@
 #include "id.h"
 #include "display.h"
 #include "device.h"
+#include "daemon.h"
 #include "inet.h"
 
 /* ************************************************************************** */
@@ -45,13 +46,13 @@ namespace WIFI {
 		return WiFi.status() == WL_CONNECTED;
 	}
 
-	bool upload(Device const device, SerialNumber const serial, struct Data const *const data) {
+	struct upload__result upload(Device device, SerialNumber serial, struct Data const *data) {
 		signed int const WiFi_status = WiFi.status();
 		if (WiFi_status != WL_CONNECTED) {
 			OLED_LOCK(oled_lock);
 			Display::print("No WiFi: ");
 			Display::println(status_message(WiFi.status()));
-			return false;
+			return {.upload_success = false};
 		}
 		class String const time = String(data->time);
 		class HTTPClient HTTP_client;
@@ -90,11 +91,24 @@ namespace WIFI {
 			HTTP_client.setAuthorization(authorization_code);
 		}
 		signed int HTTP_status = HTTP_client.GET();
-		OLED_LOCK(oled_lock);
-		Display::print("HTTP status: ");
-		Display::println(HTTP_status);
-		if (not (HTTP_status >= 200 and HTTP_status < 300)) return false;
-		return true;
+		{
+			OLED_LOCK(oled_lock);
+			Display::print("HTTP status: ");
+			Display::println(HTTP_status);
+		}
+		if (not (HTTP_status >= 200 and HTTP_status < 300))
+			return {.upload_success = false};
+		if (HTTP_status != 200)
+			return {.upload_success = true, .update_configuration = false};
+		signed int const size = HTTP_client.getSize();
+		if (size < 0 || size > HTTP_RESPONE_SIZE)
+			return {.upload_success = true, .update_configuration = false};
+		class Configuration configuration;
+		if (!configuration.decode(HTTP_client.getString())) {
+			COM::println("WARN: Configuration syntax error");
+			return {.upload_success = true, .update_configuration = false};
+		}
+		return {.upload_success = true, .update_configuration = true, .configuration = configuration};
 	}
 
 	void loop(void) {

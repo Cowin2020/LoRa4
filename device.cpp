@@ -1,4 +1,3 @@
-#include "type.h"
 #include "id.h"
 #include "display.h"
 #include "device.h"
@@ -20,6 +19,8 @@ unsigned long const CPU_frequency =
 	;
 
 std::mutex device_mutex;
+
+/* ************************************************************************** */
 
 #if !defined(ENABLE_CLOCK)
 	#include <RTClib.h>

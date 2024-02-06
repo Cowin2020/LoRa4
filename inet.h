@@ -8,7 +8,12 @@
 namespace WIFI {
 	extern void initialize(void);
 	extern bool ready(void);
-	extern bool upload(Device const device, SerialNumber const serial, struct Data const *data);
+	struct upload__result {
+		bool upload_success;
+		bool update_configuration;
+		class Configuration configuration;
+	};
+	extern struct upload__result upload(Device device, SerialNumber serial, struct Data const *data);
 	extern void loop(void);
 }
 

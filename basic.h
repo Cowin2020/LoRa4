@@ -1,5 +1,5 @@
-#ifndef INCLUDE_TYPE_H
-#define INCLUDE_TYPE_H
+#ifndef INCLUDE_BASIC_H
+#define INCLUDE_BASIC_H
 
 /* ************************************************************************** */
 
@@ -8,10 +8,14 @@
 
 #include <WString.h>
 
+/* ************************************************************************** */
+
 typedef unsigned long int Millisecond;
 
 typedef uint8_t Device;
 typedef uint32_t SerialNumber;
+
+unsigned int parse_uint(char const **next);
 
 struct [[gnu::packed]] FullTime {
 	unsigned short int year;
@@ -24,6 +28,14 @@ struct [[gnu::packed]] FullTime {
 	explicit operator String(void) const;
 };
 
+class Configuration {
+public:
+	unsigned int measure_interval;
+	Configuration(void);
+	bool decode(class String const &string);
+	bool apply(void) const;
+};
+
 /* ************************************************************************** */
 
-#endif // INCLUDE_TYPE_H
+#endif // INCLUDE_BASIC_H

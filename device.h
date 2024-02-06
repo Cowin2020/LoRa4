@@ -7,7 +7,7 @@
 #include <WiFi.h>
 
 #include "config_device.h"
-#include "type.h"
+#include "basic.h"
 
 /* ************************************************************************** */
 

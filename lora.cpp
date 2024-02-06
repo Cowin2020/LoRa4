@@ -211,7 +211,7 @@ namespace LORA {
 
 		static void SEND(Device const receiver, std::vector<uint8_t> const &content) {
 			size_t const minimal_content_size =
-				sizeof (Device)       /* terminal */
+				sizeof (Device)         /* terminal */
 				+ sizeof (Device)       /* router list length >= 1 */
 				+ sizeof (SerialNumber) /* serial code */
 				+ sizeof (struct Data); /* data */
@@ -261,13 +261,13 @@ namespace LORA {
 						+ sizeof (Device)
 						+ routers_length
 					);
-				size_t const router_list_size =
+				size_t const overhead_size =
 					sizeof (Device) * (1 + routers_length)
 					+ sizeof (SerialNumber);
 				struct Data const data =
 					*reinterpret_cast<struct Data const *>(
 						content.data()
-						+ router_list_size
+						+ overhead_size
 					);
 				{
 					OLED_LOCK(oled_lock);
@@ -280,15 +280,22 @@ namespace LORA {
 					OLED::display();
 				}
 
-				bool const upload_success = WIFI::upload(device, serial, &data);
+				class WIFI::upload__result const upload_result = WIFI::upload(device, serial, &data);
 				{
 					OLED_LOCK(oled_lock);
 					OLED::display();
 				}
-				if (!upload_success) return;
+				if (!upload_result.upload_success) return;
 
 				Device const router = *reinterpret_cast<Device const *>(content.data() + sizeof device);
-				Send::packet("ACK", PACKET_ACK, router, content.data(), router_list_size);
+				if (upload_result.update_configuration) {
+					std::vector<uint8_t> ack(overhead_size + sizeof upload_result.configuration);
+					std::memcpy(ack.data(), content.data(), overhead_size);
+					std::memcpy(ack.data() + overhead_size, &upload_result.configuration, sizeof upload_result.configuration);
+					Send::packet("ACK", PACKET_ACK, router, ack.data(), ack.size());
+				}
+				else
+					Send::packet("ACK", PACKET_ACK, router, content.data(), overhead_size);
 			}
 			else {
 				size_t const minimal_content_size =
@@ -336,14 +343,29 @@ namespace LORA {
 						return;
 					}
 
-					SerialNumber const serial = *reinterpret_cast<SerialNumber const *>(content.data() + 2 * sizeof (Device));
+					SerialNumber const serial =
+						*reinterpret_cast<SerialNumber const *>(
+							content.data()
+							+ 2 * sizeof (Device)
+						);
 					{
 						DEBUG_LOCK(debug_lock);
 						Debug::print("DEBUG: LORA::Receive::ACK serial=");
 						Debug::println(serial);
 					}
 					DAEMON::Push::ack(serial);
-					OLED::draw_received();
+					{
+						OLED_LOCK(olec_lock);
+						OLED::draw_received();
+					}
+
+					class Configuration const configuration =
+						*reinterpret_cast<class Configuration const *>(
+							content.data()
+							+ 2 * sizeof (Device)
+							+ sizeof serial
+						);
+					configuration.apply();
 				}
 				else {
 					size_t const Device2 = 2 * sizeof (Device);
@@ -412,7 +434,6 @@ namespace LORA {
 			AuthCipher cipher;
 			std::vector<uint8_t> cleantext(content_size);
 			if (!cipher.setKey((uint8_t const *)secret_key, sizeof secret_key)) {
-				DEBUG_LOCK(debug_lock);
 				COM::print("ERROR: LORA::Receive::decode ");
 				COM::print(*packet_type);
 				COM::println(" fail to set cipher key");
@@ -420,7 +441,6 @@ namespace LORA {
 				return;
 			}
 			if (!cipher.setIV(nonce, CIPHER_IV_LENGTH)) {
-				DEBUG_LOCK(debug_lock);
 				COM::print("ERROR: LORA::Receive::decode ");
 				COM::print(*packet_type);
 				COM::println(" fail to set cipher nonce");
