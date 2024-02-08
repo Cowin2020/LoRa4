@@ -290,22 +290,20 @@ namespace DAEMON {
 			thread_delay(START_DELAY);
 			for (;;)
 				try {
-					if (WIFI::ready()) {
-						struct Data data;
-						if (SDCard::read_data(&data)) {
-							send_success.store(false);
-							esp_pthread_set_cfg(&esp_pthread_cfg);
-							send_data(data);
-						}
-						else
-							send_success.store(true);
-						#if SEND_IDLE_INTERVAL > SEND_INTERVAL
-							if (!send_success.load())
-								Schedule::sleep(&alarm, SEND_IDLE_INTERVAL);
-							else
-						#endif
-								Schedule::sleep(&alarm, SEND_INTERVAL);
+					struct Data data;
+					if (SDCard::read_data(&data)) {
+						send_success.store(false);
+						esp_pthread_set_cfg(&esp_pthread_cfg);
+						send_data(data);
 					}
+					else
+						send_success.store(true);
+					#if SEND_IDLE_INTERVAL > SEND_INTERVAL
+						if (!send_success.load())
+							Schedule::sleep(&alarm, SEND_IDLE_INTERVAL);
+						else
+					#endif
+							Schedule::sleep(&alarm, SEND_INTERVAL);
 				}
 				catch (...) {
 					COM::println("ERROR: DAEMON::Push::loop exception thrown");
