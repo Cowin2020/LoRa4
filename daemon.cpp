@@ -287,7 +287,7 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			Schedule::add_timer(&alarm, "DAEMON::Push");
-			thread_delay(START_DELAY);
+			Schedule::sleep(&alarm, START_DELAY);
 			for (;;)
 				try {
 					struct Data data;
@@ -342,7 +342,7 @@ namespace DAEMON {
 		[[noreturn]]
 		void loop(void) {
 			Schedule::add_timer(&alarm, "DAEMON::Measure");
-			thread_delay(START_DELAY);
+			Schedule::sleep(&alarm, START_DELAY);
 			for (;;)
 				try {
 					struct Data data;
