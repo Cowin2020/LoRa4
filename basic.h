@@ -33,7 +33,7 @@ public:
 	unsigned int measure_interval;
 	Configuration(void);
 	bool decode(class String const &string);
-	bool apply(void) const;
+	void apply(void) const;
 };
 
 /* ************************************************************************** */

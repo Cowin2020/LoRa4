@@ -30,7 +30,7 @@ FullTime::operator String(void) const {
 	return String(buffer);
 }
 
-Configuration::Configuration(void) : measure_interval(MEASURE_INTERVAL) {}
+Configuration::Configuration(void) : measure_interval(0) {}
 
 bool Configuration::decode(class String const &string) {
 	for (char const *p = string.c_str();; ++p)
@@ -56,16 +56,9 @@ bool Configuration::decode(class String const &string) {
 		}
 }
 
-bool Configuration::apply(void) const {
-	bool result = true;
-	if (measure_interval < SEND_INTERVAL || measure_interval > 1000*60*60*24)
-		result = false;
-	else {
+void Configuration::apply(void) const {
+	if (measure_interval > SEND_INTERVAL || measure_interval <= 1000*60*60*24)
 		DAEMON::Measure::set_interval(measure_interval);
-		Debug::print("DEBUG: Configuration::apply measure_interval=");
-		Debug::println(measure_interval);
-	}
-	return result;
 }
 
 /* ************************************************************************** */
