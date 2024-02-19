@@ -16,7 +16,7 @@
 #define ENABLE_CLOCK CLOCK_DS3231
 
 /* LoRa */
-#define SECRET_KEY "This is secret!"
+#define SECRET_KEY "16-byte secret!"
 #define ROUTER_TOPOLOGY {}
 #define LORA_BAND 923000000 /* Hz */
 
