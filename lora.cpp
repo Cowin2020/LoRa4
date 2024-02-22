@@ -327,9 +327,10 @@ namespace LORA {
 					sizeof (Device)          /* terminal */
 					+ sizeof (Device)        /* router list length >= 1 */
 					+ sizeof (SerialNumber); /* serial code */
-				if (!(content.size() >= minimal_content_size)) {
+				size_t const content_size = content.size();
+				if (!(content_size >= minimal_content_size)) {
 					COM::print("WARN: LoRa ACK: incorrect packet size: ");
-					COM::println(content.size());
+					COM::println(content_size);
 					return;
 				}
 
@@ -359,13 +360,15 @@ namespace LORA {
 						OLED::draw_received();
 					}
 
-					class Configuration const configuration =
-						*reinterpret_cast<class Configuration const *>(
-							content.data()
-							+ 2 * sizeof (Device)
-							+ sizeof serial
-						);
-					configuration.apply();
+					if (content_size >= minimal_content_size + sizeof (class Configuration)) {
+						class Configuration const configuration =
+							*reinterpret_cast<class Configuration const *>(
+								content.data()
+								+ 2 * sizeof (Device)
+								+ sizeof serial
+							);
+						configuration.apply();
+					}
 				}
 				else {
 					size_t const Device2 = 2 * sizeof (Device);
