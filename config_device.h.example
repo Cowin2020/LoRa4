@@ -29,10 +29,12 @@
 	"?device=%1$u&serial=%2$u&time=%3$s"
 #define HTTP_AUTHORIZATION_TYPE "Basic"
 #define HTTP_AUTHORIZATION_CODE "passcode for webserver"
+#define HTTP_RESPONE_SIZE 256
 #define NTP_SERVER "stdtime.gov.hk"
 #define NTP_INTERVAL 1234567UL /* milliseconds */
 
 /* Timimg */
+#define START_DELAY 10000 /* milliseconds */
 #define IDLE_INTERVAL 123 /* milliseconds */
 #define ACK_TIMEOUT 1000UL /* milliseconds */
 #define RESEND_TIMES 3

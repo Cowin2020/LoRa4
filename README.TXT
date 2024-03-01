@@ -238,12 +238,53 @@ LTR390 I2C sensor is used
 
 Type: defined or undefined
 
+SECRET_KEY
+----------
+
+Secret key for encryption of LoRa communication
+
+Need to be same for both gateway and terminal sides.
+
+Type: string or byte array with 16-byte size
+
+ROUTER_TOPOLOGY
+---------------
+
+Setting of LoRa message routing
+
+Circular routing should be avoided.
+
+Type: array of pairs of device IDs (upstream device, downstream device).
+
+Example: {{2, 1}, {0, 1}, {2, 4}, {4, 3}}
+
+The topology will be:
+
+     -------- [1]
+    /        /
+   /        /
+[0] --- [2]
+           \
+            \
+             [4] --- [3]
+
+Device 1 sends data through device 2 or directly sends to device 0 (gateway device).
+Device 4 only sends data through device 2, and device 3 only send through device 4.
+Devices send only to device 0 by default if not listed.
+
 WIFI_SSID and WIFI_PASS
 -----------------------
 
 WiFi access point and password
 
 Type: C strings
+
+HTTP_UPLOAD_LENGTH
+---------------
+
+Maximum length of HTTP URL string
+
+Type: natural number
 
 HTTP_UPLOAD_FORMAT
 ---------------
@@ -268,19 +309,26 @@ Position arguments:
 			LTR390 ultraviolet
 		data can be missing if corresponding ENABLE_* is not defined
 
-HTTP_UPLOAD_LENGTH
----------------
+HTTP_AUTHORIZATION_TYPE and HTTP_AUTHORIZATION_CODE
+---------------------------------------------------
 
-Maximum length of HTTP URL string
+Authorization code on HTTP for uploading.
 
-SECRET_KEY
-----------
+Type: C strings
 
-Secret key for encryption of LoRa communication
+HTTP_RESPONE_SIZE
+-----------------
 
-Need to be same for both gateway and terminal sides.
+Buffer size for HTTP response from data server.
 
-Type: string or byte array with 16-byte size
+Type: natural number
+
+NTP_INTERVAL
+------------
+
+Milliseconds to (re)synchronize with network clock.
+
+Type: natural number
 
 DATA_FILE_PATH
 -------------
@@ -313,7 +361,7 @@ Type: natural number
 ACK_TIMEOUT
 -----------
 
-Milliseconds to wait for ACK response
+Period in milliseconds to wait for ACK response
 
 Type: natural number
 
@@ -358,31 +406,6 @@ INTERNET_INTERVAL
 Period in milliseconds to check internet (WiFi) status
 
 Type: natural number
-
-ROUTER_TOPOLOGY
----------------
-
-Setting of LoRa message routing
-
-Circular routing should be avoided.
-
-Type: array of pairs of device IDs (upstream device, downstream device).
-
-Example: {{2, 1}, {0, 1}, {2, 4}, {4, 3}}
-
-The topology will be:
-
-     -------- [1]
-    /        /
-   /        /
-[0] --- [2]
-           \
-            \
-             [4] --- [3]
-
-Device 1 sends data through device 2 or directly sends to device 0 (gateway device).
-Device 4 only sends data through device 2, and device 3 only send through device 4.
-Devices send only to device 0 by default if not listed.
 
 SLEEP_MARGIN
 ------------
