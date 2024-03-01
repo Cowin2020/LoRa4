@@ -404,13 +404,13 @@ namespace LORA {
 			uint8_t const *const ciphertext = nonce + CIPHER_IV_LENGTH;
 			uint8_t const *const tag = ciphertext + content_size;
 			if (!((char *)packet.data() + sizeof (PacketType) + sizeof (Device) == (char *)nonce)) {
-				//	DEBUG_LOCK(debug_lock);
-				//	Debug::println("DEBUG: LORA::Receive::decode incorrect nonce position");
+				DEBUG_LOCK(debug_lock);
+				Debug::println("DEBUG: LORA::Receive::decode incorrect nonce position");
 				return;
 			}
 			if (!((char *)packet.data() + packet.size() == (char *)tag + CIPHER_TAG_SIZE)) {
-				//	DEBUG_LOCK(debug_lock);
-				//	Debug::println("DEBUG: LORA::Receive::decode incorrect content size");
+				DEBUG_LOCK(debug_lock);
+				Debug::println("DEBUG: LORA::Receive::decode incorrect content size");
 				return;
 			}
 
@@ -421,16 +421,16 @@ namespace LORA {
 				case PACKET_ACK:
 					break;
 				default:
-					//	DEBUG_LOCK(debug_lock);
-					//	Debug::print("DEBUG: LORA::Receive::decode unknown packet type ");
-					//	Debug::println(*packet_type);
+					DEBUG_LOCK(debug_lock);
+					Debug::print("DEBUG: LORA::Receive::decode unknown packet type ");
+					Debug::println(*packet_type);
 					return;
 			}
 
 			if (!(*device >= 0 && *device < number_of_device)) {
-				//	DEBUG_LOCK(debug_lock);
-				//	Debug::print("DEBUG: LORA::Receive::decode unknown device ");
-				//	Debug::println(*device);
+				DEBUG_LOCK(debug_lock);
+				Debug::print("DEBUG: LORA::Receive::decode unknown device ");
+				Debug::println(*device);
 				return;
 			}
 
@@ -452,9 +452,9 @@ namespace LORA {
 			}
 			cipher.decrypt(cleantext.data(), ciphertext, content_size);
 			if (!cipher.checkTag(tag, sizeof tag)) {
-				//	Debug::print("DEBUG: LORA::Receive::decode ");
-				//	Debug::print(*packet_type);
-				//	Debug::println(" invalid cipher tag");
+				Debug::print("DEBUG: LORA::Receive::decode ");
+				Debug::print(*packet_type);
+				Debug::println(" invalid cipher tag");
 				return;
 			}
 			{
