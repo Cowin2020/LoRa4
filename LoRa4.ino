@@ -19,7 +19,7 @@ static bool setup_success;
 
 void setup(void) {
 	#if !defined(NDEBUG)
-		delay(5000);
+		delay(START_DELAY);
 	#endif
 	setup_success = false;
 	LED::initialize();

@@ -53,6 +53,7 @@ namespace LORA {
 	bool initialize(void) {
 		SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
 		LoRa.setPins(LORA_CS, LORA_RST, LORA_IRQ);
+
 		if (!enable_gateway) {
 			size_t const N = sizeof router_topology / sizeof *router_topology;
 			size_t i = 0;
@@ -68,15 +69,28 @@ namespace LORA {
 				++i;
 			}
 		}
+
 		if (!LoRa.begin(LORA_BAND)) {
 			OLED_LOCK(oled_lock);
 			Display::println("LoRa uninitialized");
 			return false;
 		}
+
 		LoRa.enableCrc();
 		last_time = millis();
 		OLED_LOCK(oled_lock);
 		Display::println("LoRa initialized");
+
+		#if defined(ENABLE_COM_OUTPUT)
+			char buffer[16];
+			COM::print("SECRET_KEY =");
+			for (unsigned int i = 0; i < sizeof secret_key; ++i) {
+				sprintf(buffer, " %02X", secret_key[i]);
+				COM::print(buffer);
+			}
+			COM::println('.');
+		#endif
+
 		return true;
 	}
 
