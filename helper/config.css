@@ -1,0 +1,66 @@
+table {
+	width: 100%;
+}
+
+tbody > label {
+	display: table-row;
+}
+
+tr:nth-child(odd),
+tbody > label:nth-child(odd) {
+	background-color: snow;
+}
+
+tr:nth-child(even),
+tbody > label:nth-child(even) {
+	background-color: ivory;
+}
+
+th {
+	text-align: left;
+}
+
+input {
+	background-color: transparent;
+}
+
+tbody > label > input {
+	display: table-cell;
+	width: 32em;
+	width: calc(100% - 2ex);
+}
+
+th {
+	width: 0;
+	white-space: nowrap;
+}
+
+td > label {
+	display: block;
+}
+
+output {
+	white-space: pre-wrap;
+	font-family: monospace;
+}
+
+output[name='JSON'] {
+	line-break: anywhere;
+	word-break: break-all;
+}
+
+fieldset > label {
+	display: flex;
+	margin-top: 0.5ex;
+	margin-bottom: 0.5ex;
+	column-gap: 1ex;
+}
+
+fieldset > label input {
+	flex-grow: 1;
+}
+
+fieldset > label output {
+	display: block;
+	flex-grow: 1;
+}

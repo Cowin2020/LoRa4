@@ -1,0 +1,136 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+<html xmlns='http://www.w3.org/1999/xhtml'>
+	<head>
+		<title>Configuration generator</title>
+		<link rel='stylesheet' type='text/css' href='config.css'/>
+		<script src='config.js'></script>
+	</head>
+	<body>
+		<form name='predefined'>
+			<fieldset style='width: fit-content'>
+				<legend>Pre-defined values</legend>
+				<select name='select'>
+					<option value=''>Clear all</option>
+					<option value='cowin'>CoWIN server</option>
+				</select>
+				<input type='password' name='key' hidden='' placeholder='Unlock password'/>
+				<button type='submit' name='apply'>Fill</button>
+			</fieldset>
+		</form>
+		<form name='basic'>
+			<h2>Identity</h2>
+			<table>
+				<tbody>
+					<label>
+						<th>Site</th>
+						<input type='text' name='site'/>
+					</label>
+					<label>
+						<th>Number of devices, including the gateway</th>
+						<input type='number' name='devices' min='1' max='255' required=''/>
+					</label>
+					<label>
+						<th>Device identity</th>
+						<input type='number' name='id' min='0' max='255' required=''/>
+					</label>
+				</tbody>
+			</table>
+			<h2>Measurement</h2>
+			<table>
+				<tbody>
+					<tr>
+						<th>Battery meter</th>
+						<td>
+							<label>
+								<input type='radio' name='battery' value='' checked=''/>
+								None
+							</label>
+							<label>
+								<input type='radio' name='battery' value='dfrobot'/>
+								DFRobot MAX17043
+							</label>
+							<label>
+								<input type='radio' name='battery' value='lc709203f'/>
+								LC709203F
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th>Sensors</th>
+						<td>
+							<label>
+								<input type='checkbox' name='bme280'/>
+								BME280
+							</label>
+							<label>
+								<input type='checkbox' name='sht4x'/>
+								SHT40
+							</label>
+						</td>
+					</tr>
+					<label>
+						<th>Measure interval / seconds</th>
+						<input type='number' name='measure' min='30' max='3600' value='60'/>
+					</label>
+				</tbody>
+			</table>
+			<h2>Communication</h2>
+			<table>
+				<tbody>
+					<label>
+						<th>LoRa secret key</th>
+						<input type='text' name='lora_key' maxlength='16' placeholder='Not more than 16 characters'/>
+					</label>
+					<label>
+						<th>WiFi SSID</th>
+						<input type='text' name='wifi_ssid'/>
+					</label>
+					<label>
+						<th>WiFi password</th>
+						<input type='text' name='wifi_pass'/>
+					</label>
+					<label>
+						<th>Database URL</th>
+						<input type='text' name='upload' placeholder='http://1.2.3.4:56789/REST/upload'/>
+					</label>
+					<label>
+						<th>Server authorization type</th>
+						<input type='text' name='auth_type' value='BASIC'/>
+					</label>
+					<label>
+						<th>Server authorization code</th>
+						<input type='text' name='auth_code'/>
+					</label>
+				</tbody>
+			</table>
+			<button type='submit' name='generate'>Generate configuration files</button>
+			<div id='basic_output' hidden=''>
+				<fieldset>
+					<legend>config_id.h</legend>
+					<output name='config_id.h'/>
+					<p><a id='anchor_id' download='config_id.h'>Download</a></p>
+				</fieldset>
+				<fieldset>
+					<legend>config_device.h</legend>
+					<output name='config_device.h'/>
+					<p><a id='anchor_device' download='config_device.h'>Download</a></p>
+				</fieldset>
+				<p><a id='anchor_log' download='_config.json'>Download log file</a></p>
+			</div>
+		</form>
+		<form name='internal' hidden=''>
+			<div>
+				<h2>For internal use only</h2>
+				<fieldset>
+					<legend>Predefine</legend>
+					<button type='button' name='grab'>Grab data</button>
+					<label>Form data <input type='text' name='data'/></label>
+					<label>Password <input type='text' name='key'/></label>
+					<button type='button' name='encrypt'>Encrypt</button>
+					<label>Nonce <output name='nonce'/></label>
+					<label>Cipertext <output name='ciphertext'/></label>
+				</fieldset>
+			</div>
+		</form>
+	</body>
+</html>
