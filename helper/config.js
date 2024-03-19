@@ -341,7 +341,7 @@ basic_form.addEventListener(
 		this.elements["config_device.h"].value = config_device;
 		replace_objectURL_strings(anchor_id, [config_id]);
 		replace_objectURL_strings(anchor_device, [config_device]);
-		anchor_log.download = form.site + "_" + now_string() + "_config.json";
+		anchor_log.download = "config_" + form.site + "_" + now_string() + ".log";
 		replace_objectURL_strings(anchor_log, [config_id, "\n\n", config_device]);
 		anchor_log.click();
 		anchor_id.click();
