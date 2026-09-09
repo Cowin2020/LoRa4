@@ -94,6 +94,18 @@
 		} \
 }
 
+/* Hide passwords if not gateway */
+#if !defined(ENABLE_GATEWAY)
+	#undef  WIFI_SSID
+	#define WIFI_SSID "Wi-Fi SSID"
+	#undef  WIFI_PASS
+	#define WIFI_PASS "Wi-Fi password"
+	#undef  HTTP_AUTHORIZATION_USER
+	#define HTTP_AUTHORIZATION_USER "Upload username"
+	#undef  HTTP_AUTHORIZATION_PASS
+	#define HTTP_AUTHORIZATION_PASS "Upload password"
+#endif
+
 /* Timing */
 #define START_DELAY 1000UL /* milliseconds */
 #define IDLE_INTERVAL 123UL /* milliseconds */
@@ -120,9 +132,9 @@
 #define ENABLE_OLED_SWITCH 35
 #define LARGE_FONT
 #if defined(ENABLE_MEASURE)
-	#define OLED_ROTATION 3 /* vertical */
+	#define OLED_ROTATION 3 /* vertical, antenna points right */
 #else
-	#define OLED_ROTATION 2 /* gateway and horizontal */
+	#define OLED_ROTATION 2 /* horizontal, antenna points down */
 #endif
 
 /* Power saving */
